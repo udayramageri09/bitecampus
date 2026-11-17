@@ -1,0 +1,1333 @@
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>BiteCampus Architecture</title>
+<style>
+/* layout: fixed header band + sticky sidebar TOC + scrolling main content */
+:root{
+  --bg:#f5f6f8; --bg-raised:#ffffff; --bg-sunken:#eceef2;
+  --fg:#1b2430; --fg-muted:#5b6676; --border:#d8dce3;
+  --accent:#0d8f84; --accent-fg:#ffffff; --accent-soft:#e3f3f1;
+  --ok:#1f8a4c; --warn:#b4650b; --danger:#c23b3b;
+  --code-bg:#eef1f5; --code-fg:#1b2430;
+  --font-display:'Space Grotesk',system-ui,sans-serif;
+  --font-body:'IBM Plex Sans',system-ui,sans-serif;
+  --font-mono:'IBM Plex Mono',ui-monospace,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1318; --bg-raised:#171c23; --bg-sunken:#11151a;
+    --fg:#e7eaf0; --fg-muted:#93a0b4; --border:#2a3341;
+    --accent:#35c9bb; --accent-fg:#06211e; --accent-soft:#132824;
+    --ok:#4ad07f; --warn:#e3a243; --danger:#f0756f;
+    --code-bg:#11151a; --code-fg:#e7eaf0;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1318; --bg-raised:#171c23; --bg-sunken:#11151a;
+  --fg:#e7eaf0; --fg-muted:#93a0b4; --border:#2a3341;
+  --accent:#35c9bb; --accent-fg:#06211e; --accent-soft:#132824;
+  --ok:#4ad07f; --warn:#e3a243; --danger:#f0756f;
+  --code-bg:#11151a; --code-fg:#e7eaf0;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;}
+body{background:var(--bg);color:var(--fg);font-family:var(--font-body);line-height:1.55;font-size:15.5px;}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--bg);}
+h1,h2,h3,h4{font-family:var(--font-display);font-weight:600;text-wrap:balance;line-height:1.2;color:var(--fg);}
+h2{font-size:1.5rem;margin:0 0 .25rem;}
+h3{font-size:1.15rem;margin:1.75rem 0 .5rem;}
+h4{font-size:.95rem;margin:1.25rem 0 .4rem;color:var(--fg-muted);text-transform:uppercase;letter-spacing:.04em;}
+p{margin:.6rem 0;max-width:72ch;}
+a{color:var(--accent);text-decoration:none;}
+a:hover{text-decoration:underline;}
+code{font-family:var(--font-mono);font-size:.85em;background:var(--code-bg);color:var(--code-fg);padding:.1em .35em;border-radius:4px;}
+.tbl-wrap{overflow-x:auto;margin:.75rem 0 1.25rem;border:1px solid var(--border);border-radius:10px;}
+table{border-collapse:collapse;width:100%;font-size:.88rem;min-width:560px;}
+table.schema{min-width:460px;}
+th,td{padding:.55rem .7rem;text-align:left;border-bottom:1px solid var(--border);vertical-align:top;}
+th{background:var(--bg-sunken);font-family:var(--font-display);font-weight:600;font-size:.8rem;text-transform:uppercase;letter-spacing:.03em;color:var(--fg-muted);white-space:nowrap;}
+tr:last-child td{border-bottom:none;}
+td code{white-space:nowrap;}
+.pill{display:inline-block;font-family:var(--font-mono);font-size:.72rem;padding:.12em .55em;border-radius:999px;border:1px solid var(--border);white-space:nowrap;}
+.pill.get{color:var(--ok);border-color:var(--ok);}
+.pill.post{color:var(--accent);border-color:var(--accent);}
+.pill.patch{color:var(--warn);border-color:var(--warn);}
+.pill.role{background:var(--bg-sunken);color:var(--fg-muted);}
+pre{background:var(--code-bg);color:var(--code-fg);padding:.9rem 1rem;border-radius:10px;overflow-x:auto;font-family:var(--font-mono);font-size:.82rem;line-height:1.5;}
+pre.mermaid{background:var(--bg-raised);border:1px solid var(--border);padding:1rem;display:flex;justify-content:center;}
+.callout{border:1px solid var(--border);border-left:4px solid var(--accent);background:var(--accent-soft);border-radius:0 10px 10px 0;padding:.8rem 1rem;margin:1rem 0;font-size:.92rem;}
+.callout.risk{border-left-color:var(--danger);background:transparent;}
+.callout.decision{border-left-color:var(--ok);}
+.callout.new{border-left-color:var(--warn);}
+.card{border:1px solid var(--border);border-radius:12px;padding:1rem 1.1rem;background:var(--bg-raised);margin:.75rem 0;}
+.grid-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:.75rem;margin:1rem 0;}
+.section-num{font-family:var(--font-mono);color:var(--accent);font-size:.9rem;display:block;margin-bottom:.2rem;letter-spacing:.05em;}
+section{padding:2.4rem 0;border-bottom:1px solid var(--border);}
+section:last-of-type{border-bottom:none;}
+.lede{color:var(--fg-muted);font-size:1.02rem;}
+.status-tag{font-family:var(--font-mono);font-size:.72rem;padding:.2em .6em;border-radius:999px;background:var(--warn);color:#1b1200;font-weight:600;letter-spacing:.03em;}
+.new-tag{font-family:var(--font-mono);font-size:.68rem;padding:.1em .5em;border-radius:999px;background:var(--danger);color:#fff;font-weight:600;letter-spacing:.03em;margin-left:.4rem;vertical-align:middle;}
+#app{display:grid;grid-template-columns:270px 1fr;min-height:100%;}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;grid-column:1/-1;background:var(--bg);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.75rem;padding:.75rem max(16px,env(safe-area-inset-right,0px)) .75rem max(16px,env(safe-area-inset-left,0px));}
+header h1{font-size:1.05rem;margin:0;flex:1;min-width:0;}
+header .meta{color:var(--fg-muted);font-size:.78rem;display:none;}
+@media (min-width:640px){header .meta{display:block;}}
+#navToggle{display:none;background:none;border:1px solid var(--border);color:var(--fg);border-radius:8px;padding:.35rem .6rem;font-family:var(--font-mono);font-size:.8rem;}
+nav#toc{position:sticky;top:calc(env(safe-area-inset-top,0px) + 52px);align-self:start;height:calc(100vh - env(safe-area-inset-top,0px) - 52px);overflow-y:auto;padding:1.25rem 1rem 2rem max(16px,env(safe-area-inset-left,0px));border-right:1px solid var(--border);}
+nav#toc a{display:block;padding:.38rem .5rem;border-radius:6px;color:var(--fg-muted);font-size:.86rem;}
+nav#toc a:hover{background:var(--bg-sunken);color:var(--fg);text-decoration:none;}
+nav#toc .toc-num{font-family:var(--font-mono);color:var(--accent);margin-right:.4rem;}
+main{padding:1.5rem 24px 4rem max(24px,0px);min-width:0;}
+main .inner{max-width:980px;padding-right:max(0px,env(safe-area-inset-right,0px));}
+@media (max-width:900px){
+  #app{grid-template-columns:1fr;}
+  nav#toc{position:fixed;top:calc(env(safe-area-inset-top,0px) + 52px);left:0;bottom:0;width:260px;background:var(--bg);z-index:25;transform:translateX(-100%);transition:transform .2s ease;box-shadow:2px 0 12px rgba(0,0,0,.15);}
+  nav#toc.open{transform:translateX(0);}
+  #navToggle{display:inline-block;}
+  main{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));}
+}
+.enum-list{font-family:var(--font-mono);font-size:.82rem;color:var(--fg-muted);}
+.enum-list b{color:var(--fg);}
+footer{padding:2rem max(16px,env(safe-area-inset-right,0px)) calc(2rem + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));color:var(--fg-muted);font-size:.82rem;grid-column:1/-1;border-top:1px solid var(--border);}
+</style>
+
+<div id="app">
+  <header>
+    <button id="navToggle" aria-label="Toggle contents">☰ Contents</button>
+    <h1>BiteCampus — Architecture &amp; Technical Design <span style="color:var(--fg-muted);font-weight:400;">· Rev. 2.1</span></h1>
+    <span class="meta">Phase 2 · Draft, pending approval</span>
+  </header>
+
+  <nav id="toc">
+    <a href="#s1"><span class="toc-num">1</span>System architecture</a>
+    <a href="#s2"><span class="toc-num">2</span>Database design</a>
+    <a href="#s3"><span class="toc-num">3</span>Booking &amp; payment lifecycle</a>
+    <a href="#s4"><span class="toc-num">4</span>QR &amp; coupon security / concurrency</a>
+    <a href="#s5"><span class="toc-num">5</span>API design</a>
+    <a href="#s6"><span class="toc-num">6</span>Auth &amp; authorization</a>
+    <a href="#s7"><span class="toc-num">7</span>Frontend architecture</a>
+    <a href="#s8"><span class="toc-num">8</span>Testing strategy</a>
+    <a href="#s9"><span class="toc-num">9</span>Deployment &amp; operations</a>
+    <a href="#s10"><span class="toc-num">10</span>Implementation roadmap</a>
+    <a href="#s11"><span class="toc-num">11</span>Decisions, risks &amp; open questions</a>
+  </nav>
+
+  <main>
+  <div class="inner">
+
+  <p><span class="status-tag">DRAFT — NOT APPROVED</span></p>
+  <p class="lede">Revision 2.1. Rev. 1 omitted the complimentary event-coupon workflow almost entirely and modeled external guests as a variant of a student; Rev. 2 added it but left several concurrency, idempotency, and session-security gaps that an independent technical review caught. This revision is <b>targeted corrections only</b> — no redesign. All Rev. 2 sections, diagrams, tables, and decisions are preserved; corrected or newly added material is marked <span class="new-tag">REV 2.1</span>. A full change summary is in §11.7. This remains an architecture document — no tests have been run, because no code exists yet; every "test" referenced below is a requirement for what must be written and verified during implementation.</p>
+
+  <section id="s1">
+    <span class="section-num">01</span>
+    <h2>System architecture</h2>
+
+    <h3>1.1 Recommended architecture: modular monolith over one Postgres database</h3>
+    <p>One deployable Node/Express process, internally split into feature modules, talking to one PostgreSQL database. The React frontend is a separate static build that only ever talks to this one backend. The only external service is Google (OAuth). The coupon workflow and the public walkthrough both fit inside this same shape without pushing toward microservices — the public page needs no backend at all (§1.3), and the coupon workflow is exactly the kind of transactional, correctness-critical work a monolith with real Postgres transactions is good at (§2.11, §4.5).</p>
+    <div class="grid-cards">
+      <div class="card"><b>No scale pressure to justify microservices.</b> 500 users and a handful of staff is a workload a single process handles without strain. Splitting it into services now would add network calls, partial-failure handling, and deployment complexity that buys nothing at this size.</div>
+      <div class="card"><b>Correctness needs real transactions.</b> Booking → payment → ticket, and ticket redemption, are exactly the kind of "all-or-nothing" operations relational transactions exist for. Spreading them across services would force you to reinvent that guarantee with sagas or distributed locks — strictly worse for no benefit here.</div>
+      <div class="card"><b>Multi-college is a data dimension, not a deployment dimension.</b> Every tenant-scoped table carries a <code>collegeId</code> (§2.9). Onboarding college #2 means inserting a row and some config — not standing up new infrastructure.</div>
+      <div class="card"><b>One codebase, one person learning full-stack.</b> A monolith is easier to hold in your head end-to-end, which matters directly for the learning goals in <code>CLAUDE.md</code> §18.</div>
+    </div>
+
+    <h3>1.2 Component view <span class="new-tag">EXPANDED</span></h3>
+    <pre class="mermaid">
+graph LR
+  subgraph Client
+    FE["React SPA<br/>student / staff / organizer / approver / admin"]
+    GUEST["Guest mini-app<br/>(separate route tree)"]
+    PUB["Public landing + walkthrough<br/>(static, zero backend calls)"]
+  end
+  subgraph Server["Node + Express (one process)"]
+    API["REST API — modular monolith"]
+    DB[("PostgreSQL — one database")]
+  end
+  GOOG["Google OAuth<br/>(college path: domain-checked)<br/>(guest path: no domain check)"]
+  VIDEO[("Static/CDN video asset")]
+  XLS["Excel files<br/>(roster + guest lists)"]
+  FUT["Real payment gateway<br/>(not in V1)"]
+
+  FE -->|HTTPS, college session cookie| API
+  GUEST -->|HTTPS, guest session cookie| API
+  PUB -. no calls .-> API
+  PUB --> VIDEO
+  API --> DB
+  API -->|OAuth code exchange, both paths| GOOG
+  FE -. future .-> FUT
+  API -. future webhook .-> FUT
+  FE -->|multipart upload| API
+  API -->|xlsx stream| XLS
+    </pre>
+    <p>The public page and the guest mini-app are drawn as separate client bundles/route trees from the main app deliberately — see §6 and §7. The guest cookie and the college cookie are never the same cookie.</p>
+
+    <h3>1.3 Module boundaries <span class="new-tag">EXPANDED</span></h3>
+    <p>Each module owns its own tables and exposes a <b>service layer</b> — plain functions other modules are allowed to call. Nothing outside a module touches that module's Prisma models directly. This is the seam that would let a module be pulled into its own service later <i>if it ever genuinely needed to</i> — not something to act on now (see <code>CLAUDE.md</code> §3.1, §17).</p>
+    <div class="tbl-wrap"><table class="schema">
+      <tr><th>Module</th><th>Owns (tables)</th><th>Responsibility</th></tr>
+      <tr><td><code>auth</code></td><td>UserRole <span class="new-tag">CHANGED</span></td><td>Google OAuth for <b>both</b> entry points. Exports two independent middlewares — <code>authGuard</code> (reads the college cookie, resolves <code>UserRole</code> rows) and <code>guestAuthGuard</code> (reads the guest cookie, resolves one <code>GuestInvitation</code> row) — that never share a code path (§6.5).</td></tr>
+      <tr><td><code>colleges</code></td><td>College, CollegeDomain</td><td>Tenant config: name, domains, timezone</td></tr>
+      <tr><td><code>users</code></td><td>User, RosterEntry</td><td>Accounts, role grants (via <code>UserRole</code>), roster CRUD</td></tr>
+      <tr><td><code>menu</code></td><td>MealConfig, MealSchedule, MenuItem, MealScheduleItem</td><td>Pricing, cutoffs, what's being served when</td></tr>
+      <tr><td><code>bookings</code></td><td>Booking, BookingItem, BookingHistory</td><td>Booking lifecycle, cutoff enforcement, reschedule/cancel</td></tr>
+      <tr><td><code>payments</code></td><td>Payment</td><td>Simulated payment records</td></tr>
+      <tr><td><code>tickets</code></td><td>Ticket, Attendance</td><td>Paid-booking QR issuance, redemption, attendance log</td></tr>
+      <tr><td><code>events</code> <span class="new-tag">EXPANDED</span></td><td>Event, EventCouponRequest, ApprovalRecord, GuestInvitation, CouponBatch, ComplimentaryCoupon, CouponRedemption</td><td>The complete complimentary-coupon workflow: request → approval → batch generation → distribution → guest claim → redemption. Exposes organizer-, approver-, kitchen-admin-, and guest-facing endpoints, each behind the correct guard.</td></tr>
+      <tr><td><code>scan</code> <span class="new-tag">NEW</span></td><td>— (reads <code>tickets</code> + <code>events</code>)</td><td>One staff-facing redemption endpoint that dispatches a scanned payload to either <code>tickets</code> or <code>events</code> based on a type discriminator in the QR — see §1.4. Owns no tables of its own; the module-level redeem endpoints in §5 still exist underneath it.</td></tr>
+      <tr><td><code>kitchen</code></td><td>KitchenRationLog, FoodWaste</td><td>Ration &amp; waste entries</td></tr>
+      <tr><td><code>feedback</code></td><td>Feedback</td><td>Student feedback per booking</td></tr>
+      <tr><td><code>reporting</code></td><td>—(reads only)</td><td>Aggregated dashboards, including the coupon funnel (§2.11); never writes</td></tr>
+      <tr><td><code>imports</code></td><td>ImportJob</td><td>Excel import/export, row validation — reused as-is for guest-list uploads (§8)</td></tr>
+      <tr><td><code>audit</code></td><td>AuditLog</td><td>Shared, append-only audit sink</td></tr>
+    </table></div>
+    <div class="callout new"><b>No new module for the public page.</b> It is a static frontend route with one config value (a video URL) — see §7, §9.5. There is nothing for a backend module to own.</div>
+
+    <h3>1.4 Cross-module calls (keeping coupling intentional) <span class="new-tag">EXPANDED</span></h3>
+    <pre class="mermaid">
+graph TD
+  bookings -->|read price/cutoff| menu
+  bookings -->|simulate payment, same tx| payments
+  bookings -->|issue ticket, same tx| tickets
+  bookings -->|write history row| audit
+  tickets -->|redeem, write attendance| audit
+  events -->|read mealType/cutoff config| menu
+  events -->|validate guest-list rows| imports
+  events -->|every stage, §8| audit
+  imports -->|write roster rows| users
+  imports -->|write import summary| audit
+  scan -->|redeem paid ticket| tickets
+  scan -->|redeem coupon| events
+  kitchen -->|read meal schedule| menu
+  feedback -->|verify booking ownership| bookings
+  reporting -. read-only SQL .-> bookings
+  reporting -. read-only SQL .-> payments
+  reporting -. read-only SQL .-> tickets
+  reporting -. read-only SQL .-> events
+  reporting -. read-only SQL .-> kitchen
+  reporting -. read-only SQL .-> feedback
+    </pre>
+    <div class="callout decision"><b>Rule.</b> A module calls another module's <i>service function</i> (e.g. <code>paymentsService.simulatePayment(tx, …)</code>), never its Prisma model directly, and never its controller/route file. Where several writes must succeed or fail together (booking + payment + ticket), the calling service passes down one Prisma transaction client so every write lands in the same transaction. <code>reporting</code> is the one exception: it only reads, so querying across modules' tables directly is safe and avoids forcing every module to expose a bespoke aggregation API.</div>
+    <p><b>Why a <code>scan</code> dispatcher <span class="new-tag">NEW</span>.</b> A staff member standing at a counter shouldn't need two different camera screens depending on whether the person in front of them paid or is on a guest list. The QR payload itself carries a one-character type discriminator (<code>T</code> for ticket, <code>C</code> for coupon); <code>scan</code> is a thin router that reads that discriminator and calls into <code>tickets</code> or <code>events</code>, each of which still owns its own table, its own token-hash, and its own atomic redemption write (§4). The unification is in the staff-facing UI/endpoint only — the data stays exactly as separate as <code>CLAUDE.md</code> §8.6 requires.</p>
+  </section>
+
+  <section id="s2">
+    <span class="section-num">02</span>
+    <h2>Database design</h2>
+    <p>PostgreSQL via Prisma. Every tenant-scoped table carries <code>collegeId</code> (§2.9) even though V1 runs one college — this is the seam for multi-college, paid for once, now.</p>
+
+    <h3>2.1 Entity relationships <span class="new-tag">EXPANDED</span></h3>
+    <pre class="mermaid">
+erDiagram
+  COLLEGE ||--o{ COLLEGE_DOMAIN : has
+  COLLEGE ||--o{ USER : scopes
+  USER ||--o{ USER_ROLE : holds
+  COLLEGE ||--o{ ROSTER_ENTRY : scopes
+  COLLEGE ||--o{ MEAL_CONFIG : scopes
+  MEAL_CONFIG ||--o{ MEAL_SCHEDULE : generates
+  COLLEGE ||--o{ MENU_ITEM : scopes
+  MEAL_SCHEDULE ||--o{ MEAL_SCHEDULE_ITEM : serves
+  MENU_ITEM ||--o{ MEAL_SCHEDULE_ITEM : appears_in
+  USER ||--o{ BOOKING : makes
+  MEAL_SCHEDULE ||--o{ BOOKING : booked_for
+  BOOKING ||--o{ BOOKING_ITEM : contains
+  BOOKING ||--|| PAYMENT : paid_by
+  BOOKING ||--|| TICKET : has
+  TICKET ||--o| ATTENDANCE : redeemed_as
+  BOOKING ||--o{ BOOKING_HISTORY : logs
+  MEAL_SCHEDULE ||--o{ KITCHEN_RATION_LOG : ration_for
+  MEAL_SCHEDULE ||--o{ FOOD_WASTE : waste_for
+  BOOKING ||--o| FEEDBACK : feedback_on
+  USER ||--o{ AUDIT_LOG : acts_as
+
+  COLLEGE ||--o{ EVENT : hosts
+  USER ||--o{ EVENT : organizes
+  EVENT ||--o{ EVENT_COUPON_REQUEST : requested_for
+  EVENT_COUPON_REQUEST ||--o{ APPROVAL_RECORD : decided_by
+  USER ||--o{ APPROVAL_RECORD : decides
+  EVENT_COUPON_REQUEST ||--o{ GUEST_INVITATION : invites
+  EVENT_COUPON_REQUEST ||--o{ COUPON_BATCH : generates
+  USER ||--o{ COUPON_BATCH : generated_by
+  COUPON_BATCH ||--o{ COMPLIMENTARY_COUPON : contains
+  GUEST_INVITATION ||--o| COMPLIMENTARY_COUPON : assigned_to
+  COMPLIMENTARY_COUPON ||--o| COUPON_REDEMPTION : redeemed_as
+  USER ||--o{ COUPON_REDEMPTION : redeems
+    </pre>
+
+    <h3>2.2 Colleges &amp; configuration</h3>
+    <div class="tbl-wrap"><table class="schema">
+      <tr><th>College</th><th></th><th></th></tr>
+      <tr><td><code>id</code></td><td>uuid, PK</td><td></td></tr>
+      <tr><td><code>name</code></td><td>text</td><td>not null</td></tr>
+      <tr><td><code>timezone</code></td><td>text</td><td>default <code>'Asia/Kolkata'</code></td></tr>
+      <tr><td><code>isActive</code></td><td>boolean</td><td>default true</td></tr>
+      <tr><td><code>createdAt</code> / <code>updatedAt</code></td><td>timestamptz</td><td></td></tr>
+    </table></div>
+    <div class="tbl-wrap"><table class="schema">
+      <tr><th>CollegeDomain</th><th></th><th></th></tr>
+      <tr><td><code>id</code></td><td>uuid, PK</td><td></td></tr>
+      <tr><td><code>collegeId</code></td><td>uuid, FK → College</td><td>not null, cascade delete</td></tr>
+      <tr><td><code>domain</code></td><td>text</td><td><b>unique</b> globally — a domain belongs to one college</td></tr>
+      <tr><td><code>createdAt</code></td><td>timestamptz</td><td></td></tr>
+    </table></div>
+    <p>Modeled as a child table, not a single column, because the brief asks for <i>configurable college email domain<b>s</b></i> — one college can legitimately have more than one valid domain (e.g. a staff vs. student subdomain) without any multi-tenant complexity being added.</p>
+
+    <h3>2.3 Users, roles &amp; roster <span class="new-tag">CHANGED</span></h3>
+    <p>Rev. 1 gave <code>User</code> a single <code>role</code> enum column. That breaks the moment one person legitimately holds more than one role — which <code>CLAUDE.md</code> §1.1/§8.1 explicitly allows (e.g. Admin also acting as Kitchen Admin) — so this revision replaces it with a join table.</p>
+    <div class="tbl-wrap"><table class="schema">
+      <tr><th>User</th><th></th><th></th></tr>
+      <tr><td><code>id</code></td><td>uuid, PK</td><td></td></tr>
+      <tr><td><code>collegeId</code></td><td>uuid, FK</td><td>not null</td></tr>
+      <tr><td><code>googleId</code> (sub)</td><td>text</td><td>unique, not null</td></tr>
+      <tr><td><code>email</code></td><td>text</td><td>unique, not null</td></tr>
+      <tr><td><code>name</code>, <code>pictureUrl</code></td><td>text</td><td>nullable</td></tr>
+      <tr><td><code>isActive</code></td><td>boolean</td><td>default true</td></tr>
+      <tr><td><code>lastLoginAt</code></td><td>timestamptz</td><td>nullable</td></tr>
+      <tr><td><code>createdAt</code> / <code>updatedAt</code></td><td>timestamptz</td><td></td></tr>
+    </table></div>
+    <div class="tbl-wrap"><table class="schema">
+      <tr><th>UserRole <span class="new-tag">NEW</span></th><th></th><th></th></tr>
+      <tr><td><code>id</code></td><td>uuid, PK</td><td></td></tr>
+      <tr><td><code>userId</code></td><td>uuid, FK → User</td><td>not null</td></tr>
+      <tr><td><code>role</code></td><td>enum <code>Role</code></td><td><span class="enum-list"><b>STUDENT</b> | <b>KITCHEN_STAFF</b> | <b>KITCHEN_ADMIN</b> | <b>ORGANIZER</b> | <b>APPROVING_AUTHORITY</b> | <b>ADMIN</b> | <b>SUPER_ADMIN</b></span></td></tr>
+      <tr><td><code>grantedByUserId</code></td><td>uuid, FK</td><td>not null (who provisioned it)</td></tr>
+      <tr><td><code>grantedAt</code></td><td>timestamptz</td><td>default now()</td></tr>
+    </table></div>
+    <p><b>Unique</b> <code>(userId, role)</code> — the same role can't be granted twice. Indexes: <code>(userId)</code> for "what can this person do," <code>(role)</code> for "who holds this role."</p>
+    <div class="callout decision"><b>Mutual exclusion, not just self-approval.</b> <code>CLAUDE.md</code> §4.5/§8.4 says an <code>event_organizer</code> account can never <i>simultaneously</i> hold <code>approving_authority</code> — this is a role-<i>grant-time</i> rule, not only a per-request check. As defense in depth, the approval endpoint itself <i>also</i> independently checks <code>request.createdByUserId !== decision.decidedByUserId</code> at the moment of approval (§6.8) — so even a bug in the grant-time check can't produce a self-approved request.</div>
+    <div class="callout risk"><b><span class="new-tag">REV 2.1</span> The grant-time check must be concurrency-safe, not just a pre-check.</b> A plain "read <code>UserRole</code>, decide, then insert" in <code>grantRole</code> has the same TOCTOU shape as every other race in this document: two concurrent grant requests — one for <code>ORGANIZER</code>, one for <code>APPROVING_AUTHORITY</code>, both targeting the same user — can each read "the other role isn't held yet," both pass their check, and both insert. Neither the unique <code>(userId, role)</code> constraint nor an application-level pre-check prevents this: the constraint only blocks the <i>same</i> role being inserted twice, and it says nothing about two <i>different</i> role values for the same user. The fix is a real lock, not a cleverer check:
+    <pre>BEGIN;
+SELECT id FROM "User" WHERE id = $userId FOR UPDATE;   -- locks this user's row
+-- within this same transaction, read UserRole for $userId
+-- if the role being granted conflicts with one already held, ROLLBACK and return 409
+INSERT INTO "UserRole" (user_id, role, granted_by_user_id, granted_at) VALUES (...);
+COMMIT;</pre>
+    <code>SELECT … FOR UPDATE</code> takes an explicit row lock on the target <code>User</code> row for the duration of the transaction. A second concurrent <code>grantRole</code> call for the <i>same</i> user blocks at that <code>SELECT</code> until the first transaction commits or rolls back — so by the time the second transaction's mutual-exclusion check runs, it is reading the first transaction's <i>committed</i> result, never a stale snapshot. Whichever call's transaction acquires the lock first wins; the second one, now seeing the real committed state, is the one that gets rejected. Grants for two <i>different</i> users don't contend at all, since each locks only its own <code>User</code> row.</div>
+    <div class="tbl-wrap"><table class="schema">
+      <tr><th>RosterEntry</th><th></th><th></th></tr>
+      <tr><td><code>id</code></td><td>uuid, PK</td><td></td></tr>
+      <tr><td><code>collegeId</code></td><td>uuid, FK</td><td>not null</td></tr>
+      <tr><td><code>email</code></td><td>text</td><td>not null</td></tr>
+      <tr><td><code>studentIdNumber</code>, <code>fullName</code>, <code>department</code></td><td>text</td><td>nullable</td></tr>
+      <tr><td><code>isActive</code></td><td>boolean</td><td>default true</td></tr>
+      <tr><td><code>importedByUserId</code></td><td>uuid, FK → User</td><td>nullable</td></tr>
+      <tr><td><code>createdAt</code> / <code>updatedAt</code></td><td>timestamptz</td><td></td></tr>
+    </table></div>
+    <p><b>Unique</b> <code>(collegeId, email)</code>. <code>User</code> and <code>RosterEntry</code> are deliberately separate: <code>RosterEntry</code> is the admin-maintained allow-list ("who is currently a legitimate student here"); <code>User</code> is "who has actually signed in." A name can be on the roster with no <code>User</code> row yet (never logged in), and roster rows are <i>deactivated</i>, never deleted, so history and past bookings stay intact. The roster is consulted only by the college login path (§6.1–6.2) — never by staff/admin provisioning (§6.3) and never by the guest path (§6.5), which doesn't query <code>User</code> or <code>RosterEntry</code> at all.</p>
+
+    <h3>2.4 Meals, menu &amp; schedule</h3>
+    <div class="tbl-wrap"><table class="schema">
+      <tr><th>MealConfig</th><th></th><th></th></tr>
+      <tr><td><code>id</code></td><td>uuid, PK</td><td></td></tr>
+      <tr><td><code>collegeId</code></td><td>uuid, FK</td><td>not null</td></tr>
+      <tr><td><code>mealType</code></td><td>enum <code>MealType</code></td><td><span class="enum-list"><b>BREAKFAST</b> | <b>LUNCH</b> | <b>DINNER</b></span></td></tr>
+      <tr><td><code>priceInPaise</code></td><td>integer</td><td>not null — see §2.9 on money</td></tr>
+      <tr><td><code>cutoffDayOffset</code></td><td>integer</td><td><code>0</code> = same day, <code>-1</code> = previous day</td></tr>
+      <tr><td><code>cutoffTime</code></td><td>time</td><td>e.g. <code>19:00</code></td></tr>
+      <tr><td><code>isActive</code></td><td>boolean</td><td>default true</td></tr>
+    </table></div>
+    <p><b>Unique</b> <code>(collegeId, mealType)</code>. Seeded with breakfast=₹45/-1 day/19:00, lunch=₹70/0/10:00, dinner=₹70/0/10:00 — but held as data admin can edit, never as constants in code (<code>CLAUDE.md</code> §5.3).</p>
+    <div class="tbl-wrap"><table class="schema">
+      <tr><th>MealSchedule</th><th></th><th></th></tr>
+      <tr><td><code>id</code></td><td>uuid, PK</td><td></td></tr>
+      <tr><td><code>collegeId</code>, <code>mealConfigId</code></td><td>uuid, FK</td><td>not null</td></tr>
+      <tr><td><code>mealType</code></td><td>enum</td><td>denormalized for query convenience</td></tr>
+      <tr><td><code>date</code></td><td>date</td><td>not null</td></tr>
+      <tr><td><code>capacity</code></td><td>integer</td><td>nullable = uncapped (§11, open question)</td></tr>
+      <tr><td><code>isAvailable</code></td><td>boolean</td><td>default true — lets kitchen cancel a whole service</td></tr>
+    </table></div>
+    <p><b>Unique</b> <code>(collegeId, mealType, date)</code> — one row per meal per day. Index <code>(collegeId, date)</code> for "what's bookable this week" queries.</p>
+    <div class="tbl-wrap"><table class="schema">
+      <tr><th>MenuItem</th><th></th><th></th></tr>
+      <tr><td><code>id</code></td><td>uuid, PK</td><td></td></tr>
+      <tr><td><code>collegeId</code></td><td>uuid, FK</td><td>not null</td></tr>
+      <tr><td><code>name</code>, <code>description</code></td><td>text</td><td></td></tr>
+      <tr><td><code>mealType</code></td><td>enum</td><td></td></tr>
+      <tr><td><code>isActive</code></td><td>boolean</td><td>default true</td></tr>
+    </table></div>
+    <p><code>MealScheduleItem</code> is a plain join table, <b>unique</b> <code>(mealScheduleId, menuItemId)</code> — "Idli Sambar was served at breakfast on this date." Purely informational in V1; price is per meal type, not per dish.</p>
+
+    <h3>2.5 Bookings &amp; booking items</h3>
+    <div class="tbl-wrap"><table class="schema">
+      <tr><th>Booking</th><th></th><th></th></tr>
+      <tr><td><code>id</code></td><td>uuid, PK</td><td></td></tr>
+      <tr><td><code>collegeId</code>, <code>userId</code>, <code>mealScheduleId</code></td><td>uuid, FK</td><td>not null</td></tr>
+      <tr><td><code>mealType</code>, <code>mealDate</code></td><td>denormalized</td><td>fast filtering/reporting without a join</td></tr>
+      <tr><td><code>status</code></td><td>enum <code>BookingStatus</code></td><td><span class="enum-list"><b>PENDING_PAYMENT</b> | <b>CONFIRMED</b> | <b>CANCELLED</b> | <b>REDEEMED</b> | <b>EXPIRED</b></span></td></tr>
+      <tr><td><code>priceInPaiseAtBooking</code></td><td>integer</td><td>price <b>snapshot</b> — see §2.9</td></tr>
+      <tr><td><code>createdAt</code> / <code>updatedAt</code></td><td>timestamptz</td><td></td></tr>
+    </table></div>
+    <p><b>Unique</b> <code>(userId, mealScheduleId)</code> — this single constraint is what makes "can't book the same meal twice" and "two clicks of Book Now can't both succeed" true at the database level, not just in application code. Indexes: <code>(collegeId, mealDate, status)</code> for dashboards, <code>(userId, status)</code> for "my bookings."</p>
+    <div class="tbl-wrap"><table class="schema">
+      <tr><th>BookingItem</th><th></th><th></th></tr>
+      <tr><td><code>id</code></td><td>uuid, PK</td><td></td></tr>
+      <tr><td><code>bookingId</code></td><td>uuid, FK</td><td>not null</td></tr>
+      <tr><td><code>menuItemId</code></td><td>uuid, FK</td><td>nullable — a deleted catalog item shouldn't break history</td></tr>
+      <tr><td><code>nameSnapshot</code></td><td>text</td><td>not null</td></tr>
+      <tr><td><code>quantity</code></td><td>integer</td><td>default 1</td></tr>
+    </table></div>
+    <p>V1 behavior is one <code>BookingItem</code> per <code>Booking</code> (the meal itself); the table exists separately so add-ons or combo items can be introduced later without a schema migration — intentionally minimal, not speculative plumbing (§11 flags this explicitly).</p>
+
+    <h3>2.6 Payments (simulated) &amp; tickets</h3>
+    <div class="tbl-wrap"><table class="schema">
+      <tr><th>Payment</th><th></th><th></th></tr>
+      <tr><td><code>id</code></td><td>uuid, PK</td><td></td></tr>
+      <tr><td><code>collegeId</code></td><td>uuid, FK</td><td>not null</td></tr>
+      <tr><td><code>bookingId</code></td><td>uuid, FK</td><td><b>unique</b> — one payment per booking</td></tr>
+      <tr><td><code>amountInPaise</code></td><td>integer</td><td>not null</td></tr>
+      <tr><td><code>status</code></td><td>enum <code>PaymentStatus</code></td><td><span class="enum-list"><b>PENDING</b> | <b>SUCCEEDED</b> | <b>FAILED</b> | <b>REFUNDED</b></span></td></tr>
+      <tr><td><code>provider</code></td><td>text</td><td>always <code>'SIMULATED'</code> in V1</td></tr>
+      <tr><td><code>simulatedReference</code></td><td>text</td><td>unique — fake transaction reference, for realism and testability</td></tr>
+    </table></div>
+    <div class="tbl-wrap"><table class="schema">
+      <tr><th>PaymentAttempt <span class="new-tag">NEW, REV 2.1</span></th><th></th><th></th></tr>
+      <tr><td><code>id</code></td><td>uuid, PK</td><td></td></tr>
+      <tr><td><code>collegeId</code>, <code>bookingId</code></td><td>uuid, FK</td><td>not null — <b>not unique</b>: many attempts can belong to one booking</td></tr>
+      <tr><td><code>status</code></td><td>enum</td><td><span class="enum-list"><b>SUCCEEDED</b> | <b>FAILED</b></span></td></tr>
+      <tr><td><code>simulatedReference</code></td><td>text</td><td>unique</td></tr>
+      <tr><td><code>failureReason</code></td><td>text</td><td>nullable</td></tr>
+      <tr><td><code>attemptedAt</code></td><td>timestamptz</td><td>default now()</td></tr>
+    </table></div>
+    <p><span class="new-tag">REV 2.1</span> Rev. 2's <code>Payment</code> table, with its unique <code>bookingId</code>, can only ever represent <i>one</i> payment per booking — but §3.1's own state machine includes a <code>PENDING → FAILED</code> path and (via <code>EXPIRED</code>) the possibility of a retry, which a single unique row can't preserve: a failed attempt followed by a successful retry would have to overwrite the failed one, losing it. <code>Payment</code> now represents only the <i>current</i>, authoritative state for a booking (still unique per booking, still the fast "is this booking paid" lookup); <code>PaymentAttempt</code> is the append-only log everything writes to first. Every attempt — successful or not — inserts a <code>PaymentAttempt</code> row inside the same transaction as the rest of §3.4's booking flow; only a <code>SUCCEEDED</code> attempt also creates/updates the <code>Payment</code> row. A failed attempt's row is never deleted or overwritten by the retry that follows it.</p>
+    <div class="tbl-wrap"><table class="schema">
+      <tr><th>Ticket</th><th></th><th></th></tr>
+      <tr><td><code>id</code></td><td>uuid, PK</td><td></td></tr>
+      <tr><td><code>collegeId</code></td><td>uuid, FK</td><td>not null</td></tr>
+      <tr><td><code>bookingId</code></td><td>uuid, FK</td><td><b>unique</b> — one ticket per booking</td></tr>
+      <tr><td><code>tokenHash</code></td><td>text</td><td><b>unique</b> — SHA-256 of the real token; raw token is <i>never</i> stored (§4)</td></tr>
+      <tr><td><code>status</code></td><td>enum <code>TicketStatus</code></td><td><span class="enum-list"><b>ISSUED</b> | <b>REDEEMED</b> | <b>VOID</b></span></td></tr>
+      <tr><td><code>issuedAt</code>, <code>redeemedAt</code></td><td>timestamptz</td><td><code>redeemedAt</code> nullable</td></tr>
+      <tr><td><code>redeemedByUserId</code></td><td>uuid, FK → User</td><td>nullable (the staff member)</td></tr>
+    </table></div>
+
+    <h3>2.7 Attendance, reschedule &amp; cancellation history</h3>
+    <div class="tbl-wrap"><table class="schema">
+      <tr><th>Attendance</th><th></th><th></th></tr>
+      <tr><td><code>id</code></td><td>uuid, PK</td><td></td></tr>
+      <tr><td><code>collegeId</code>, <code>ticketId</code>, <code>bookingId</code>, <code>userId</code></td><td>uuid, FK</td><td><code>ticketId</code> unique</td></tr>
+      <tr><td><code>mealType</code>, <code>mealDate</code></td><td>denormalized</td><td></td></tr>
+      <tr><td><code>redeemedByUserId</code></td><td>uuid, FK</td><td>not null (staff)</td></tr>
+      <tr><td><code>redeemedAt</code></td><td>timestamptz</td><td>not null</td></tr>
+      <tr><td><code>method</code></td><td>enum <code>AttendanceMethod</code></td><td><span class="enum-list"><b>QR_SCAN</b> | <b>MANUAL_OVERRIDE</b></span></td></tr>
+      <tr><td><code>notes</code></td><td>text</td><td>nullable — reason, for manual redemptions</td></tr>
+    </table></div>
+    <p><code>Ticket</code> is the <i>security/state</i> object (can this token still be redeemed?); <code>Attendance</code> is the <i>reporting/audit</i> log (who actually ate, when, how). Keeping them separate means a manual override — which never involves scanning a token — still produces a clean attendance record without forcing <code>Ticket</code>'s state machine to model a case that has nothing to do with tokens.</p>
+    <div class="tbl-wrap"><table class="schema">
+      <tr><th>BookingHistory</th><th></th><th></th></tr>
+      <tr><td><code>id</code></td><td>uuid, PK</td><td></td></tr>
+      <tr><td><code>collegeId</code>, <code>bookingId</code></td><td>uuid, FK</td><td>not null</td></tr>
+      <tr><td><code>action</code></td><td>enum</td><td><span class="enum-list"><b>RESCHEDULED</b> | <b>CANCELLED</b> | <b>ADMIN_OVERRIDE</b></span></td></tr>
+      <tr><td><code>previousMealScheduleId</code>, <code>newMealScheduleId</code></td><td>uuid, FK</td><td>nullable</td></tr>
+      <tr><td><code>previousStatus</code>, <code>newStatus</code></td><td>enum <code>BookingStatus</code></td><td>nullable</td></tr>
+      <tr><td><code>reason</code></td><td>text</td><td>nullable (required by the service layer for overrides)</td></tr>
+      <tr><td><code>performedByUserId</code>, <code>performedAt</code></td><td>uuid / timestamptz</td><td>not null</td></tr>
+    </table></div>
+    <p>A reschedule mutates the <i>same</i> <code>Booking</code> row in place (same id, same ticket re-issued) rather than cancel-and-recreate — this keeps one continuous history per logical booking and avoids a confusing trail of dead rows. <code>BookingHistory</code> is what actually records that the change happened.</p>
+
+    <h3>2.8 Kitchen ration, waste, feedback &amp; audit</h3>
+    <div class="tbl-wrap"><table class="schema">
+      <tr><th>KitchenRationLog</th><th></th><th></th></tr>
+      <tr><td><code>id</code>, <code>collegeId</code>, <code>mealScheduleId</code></td><td>uuid, FK</td><td>not null</td></tr>
+      <tr><td><code>type</code></td><td>enum</td><td><span class="enum-list"><b>PREPARED</b> | <b>ISSUED</b></span></td></tr>
+      <tr><td><code>quantity</code></td><td>integer</td><td>not null</td></tr>
+      <tr><td><code>unit</code></td><td>text</td><td>default <code>'servings'</code></td></tr>
+      <tr><td><code>recordedByUserId</code>, <code>recordedAt</code></td><td>uuid / timestamptz</td><td>not null</td></tr>
+    </table></div>
+    <div class="tbl-wrap"><table class="schema">
+      <tr><th>FoodWaste</th><th></th><th></th></tr>
+      <tr><td><code>id</code>, <code>collegeId</code>, <code>mealScheduleId</code></td><td>uuid, FK</td><td>not null</td></tr>
+      <tr><td><code>quantity</code>, <code>unit</code></td><td>integer / text</td><td></td></tr>
+      <tr><td><code>reasonCode</code></td><td>enum <code>WasteReasonCode</code></td><td><span class="enum-list"><b>OVERPRODUCTION</b> | <b>UNCOLLECTED</b> | <b>SPOILAGE</b> | <b>OTHER</b></span></td></tr>
+      <tr><td><code>notes</code></td><td>text</td><td>nullable</td></tr>
+      <tr><td><code>recordedByUserId</code>, <code>recordedAt</code></td><td>uuid / timestamptz</td><td>not null</td></tr>
+    </table></div>
+    <p>Both are append-only logs (not single rows per meal) so multiple entries across a service window are possible. Index <code>mealScheduleId</code> on each.</p>
+    <div class="tbl-wrap"><table class="schema">
+      <tr><th>Feedback</th><th></th><th></th></tr>
+      <tr><td><code>id</code>, <code>collegeId</code></td><td>uuid, FK</td><td>not null</td></tr>
+      <tr><td><code>bookingId</code></td><td>uuid, FK</td><td><b>unique</b> — one feedback per booking</td></tr>
+      <tr><td><code>userId</code></td><td>uuid, FK</td><td>not null</td></tr>
+      <tr><td><code>rating</code></td><td>integer</td><td>not null, <b>CHECK rating BETWEEN 1 AND 5</b></td></tr>
+      <tr><td><code>comment</code></td><td>text</td><td>nullable</td></tr>
+    </table></div>
+    <div class="callout">Prisma's schema language doesn't fully express arbitrary <code>CHECK</code> constraints yet, so the <code>rating</code> bound needs a one-line raw-SQL addition inside the generated migration file. It's a small example of a general habit: Prisma gets you most of the schema, but it's still a thin layer over real SQL — don't be surprised when you have to drop into a migration file by hand.</div>
+    <div class="tbl-wrap"><table class="schema">
+      <tr><th>AuditLog</th><th></th><th></th></tr>
+      <tr><td><code>id</code></td><td>uuid, PK</td><td></td></tr>
+      <tr><td><code>collegeId</code></td><td>uuid, FK</td><td>nullable (a few actions are cross-college)</td></tr>
+      <tr><td><code>actorUserId</code></td><td>uuid, FK</td><td>nullable (system-initiated actions)</td></tr>
+      <tr><td><code>action</code></td><td>text</td><td>e.g. <code>BOOKING_OVERRIDE</code>, <code>ROLE_CHANGE</code>, <code>ROSTER_IMPORT_COMMIT</code></td></tr>
+      <tr><td><code>entityType</code>, <code>entityId</code></td><td>text</td><td>what was acted on</td></tr>
+      <tr><td><code>metadata</code></td><td>jsonb</td><td>nullable — free-form detail (old/new values, reason, row counts)</td></tr>
+      <tr><td><code>createdAt</code></td><td>timestamptz</td><td>default now()</td></tr>
+    </table></div>
+    <p>Indexes: <code>(collegeId, entityType, entityId)</code> and <code>(createdAt)</code>. One shared, append-only table used by overrides, role changes, and imports — rather than a bespoke log table per feature — so "show me everything that happened" is always one query.</p>
+    <div class="tbl-wrap"><table class="schema">
+      <tr><th>ImportJob</th><th></th><th></th></tr>
+      <tr><td><code>id</code>, <code>collegeId</code></td><td>uuid, FK</td><td>not null</td></tr>
+      <tr><td><code>type</code></td><td>enum</td><td><span class="enum-list"><b>ROSTER</b> | <b>MENU</b> | <b>EVENT_GUEST_LIST</b> <span class="new-tag">REV 2.1</span></span></td></tr>
+      <tr><td><code>eventCouponRequestId</code> <span class="new-tag">REV 2.1</span></td><td>uuid, FK, nullable</td><td>set only when <code>type = EVENT_GUEST_LIST</code> — which request this guest list belongs to</td></tr>
+      <tr><td><code>fileName</code></td><td>text</td><td>not null</td></tr>
+      <tr><td><code>status</code></td><td>enum</td><td><span class="enum-list"><b>PENDING</b> | <b>VALIDATED</b> | <b>COMMITTED</b> | <b>FAILED</b></span></td></tr>
+      <tr><td><code>totalRows</code>, <code>acceptedRows</code>, <code>rejectedRows</code></td><td>integer</td><td>nullable until validated</td></tr>
+      <tr><td><code>errorReport</code></td><td>jsonb</td><td>nullable — per-row rejection detail</td></tr>
+      <tr><td><code>performedByUserId</code></td><td>uuid, FK</td><td>not null — for <code>EVENT_GUEST_LIST</code>, must hold <code>ORGANIZER</code> and own the target request</td></tr>
+    </table></div>
+    <p><code>ImportJob</code> holds the rich, import-specific detail (per-row errors); it writes one summary row to <code>AuditLog</code> on commit so imports still show up in the general audit trail.</p>
+    <div class="callout new"><b><span class="new-tag">REV 2.1</span> One import engine, three callers.</b> A guest-list upload (§5, §8) is <code>POST /api/organizer/requests/:id/guests</code>, but underneath it runs through the exact same <code>imports</code> module, the same row-level Zod validation, the same dry-run/preview step, and the same accepted/rejected-count + <code>errorReport</code> shape as a roster or menu upload — only the <code>type</code> and the row-to-entity mapping (one <code>GuestInvitation</code> per accepted row, instead of one <code>RosterEntry</code>) differ. There is deliberately no second, parallel Excel-parsing/validation engine for events; adding <code>EVENT_GUEST_LIST</code> to the existing enum is the whole change.</div>
+
+    <h3>2.9 Database-wide decisions worth knowing cold</h3>
+    <div class="grid-cards">
+      <div class="card"><b>Money as integer paise, never float.</b> ₹45 is stored as <code>4500</code>. Floating point can't represent most decimal fractions exactly, so arithmetic on currency-as-float eventually produces off-by-a-paisa bugs; integers in the smallest unit sidestep the whole class of bug.</div>
+      <div class="card"><b>Price snapshot on <code>Booking</code>.</b> <code>priceInPaiseAtBooking</code> is copied at booking time. If admin changes tomorrow's lunch price today, every already-confirmed booking keeps the price it was made at — a deliberate call confirmed in §11.</div>
+      <div class="card"><b><code>collegeId</code> on every tenant-scoped table.</b> Every service-layer query filters by the authenticated user's <code>collegeId</code> — never one supplied by the client. This is the entire multi-college strategy: no sharding, no per-college schema, just a column and a discipline about always filtering on it.</div>
+      <div class="card"><b>Timestamps in UTC, converted at the edge.</b> Postgres <code>timestamptz</code> everywhere; <code>Asia/Kolkata</code> conversion happens explicitly in the cutoff-calculation code (§3), never relied on from server-local time.</div>
+      <div class="card"><b>Deactivate, don't delete.</b> <code>RosterEntry.isActive</code> and <code>User.isActive</code> are booleans, not row deletions — history, audit logs, and foreign keys from past bookings stay intact.</div>
+      <div class="card"><b>Enums as native Postgres enums.</b> Prisma maps TypeScript-style enums to real Postgres enum types — invalid values are rejected by the database itself, not only by application code.</div>
+    </div>
+
+    <div class="callout risk"><b><span class="new-tag">REV 2.1</span> <code>collegeId</code> alone is a convention; composite foreign keys make it a constraint.</b> Filtering every query by <code>collegeId</code> (above) stops a buggy query from <i>reading</i> across colleges. It does nothing to stop a buggy <i>write</i> from creating a row that points, say, a Booking in College A at a MealSchedule in College B — that's a plain single-column FK on <code>mealScheduleId</code>, and a single-column FK has no way to know about <code>collegeId</code> at all. The fix, where it's practical, is a <b>composite foreign key</b> that includes <code>collegeId</code> on both sides:</p>
+    <div class="tbl-wrap"><table>
+      <tr><th>Child (collegeId, …)</th><th>→ Parent (collegeId, id)</th></tr>
+      <tr><td><code>Booking(collegeId, mealScheduleId)</code></td><td><code>MealSchedule(collegeId, id)</code></td></tr>
+      <tr><td><code>EventCouponRequest(collegeId, eventId)</code></td><td><code>Event(collegeId, id)</code></td></tr>
+      <tr><td><code>GuestInvitation(collegeId, eventCouponRequestId)</code></td><td><code>EventCouponRequest(collegeId, id)</code></td></tr>
+      <tr><td><code>CouponBatch(collegeId, eventCouponRequestId)</code></td><td><code>EventCouponRequest(collegeId, id)</code></td></tr>
+      <tr><td><code>ComplimentaryCoupon(collegeId, couponBatchId)</code></td><td><code>CouponBatch(collegeId, id)</code></td></tr>
+      <tr><td><code>ComplimentaryCoupon(collegeId, guestInvitationId)</code></td><td><code>GuestInvitation(collegeId, id)</code></td></tr>
+      <tr><td><code>CouponRedemption(collegeId, couponId)</code></td><td><code>ComplimentaryCoupon(collegeId, id)</code></td></tr>
+    </table></div>
+    <p style="margin-top:.6rem">A composite FK needs a matching unique constraint on the referenced <i>pair</i>, not just on the parent's primary key — so each parent table above also needs <code>@@unique([collegeId, id])</code> (redundant with the PK on <code>id</code> alone, but it's what makes the pair referenceable). This is expressible directly in Prisma's schema language: a relation can declare multiple <code>fields</code>/<code>references</code>, e.g. on <code>Booking</code>: <code>@@relation(fields: [collegeId, mealScheduleId], references: [collegeId, id])</code> against <code>MealSchedule</code>'s <code>@@unique([collegeId, id])</code>. No raw migration SQL is required for this part. With it in place, an <code>INSERT</code> or <code>UPDATE</code> that tries to pair a child row's <code>collegeId</code> with a parent row from a <i>different</i> college is rejected by Postgres itself, as a foreign-key violation — not caught later by a query filter, a test, or a code review. This is deliberately <i>not</i> Row-Level Security: RLS would additionally rewrite every <code>SELECT</code>'s visibility, which is more machinery than this pilot needs; composite FKs only close the specific "wrote a cross-college pointer" gap, at the cost of one extra unique index per parent table.</div>
+
+    <h3>2.10 Event coupon entities — the missing module, in full <span class="new-tag">NEW</span></h3>
+
+    <div class="tbl-wrap"><table class="schema">
+      <tr><th>Event</th><th></th><th></th></tr>
+      <tr><td><code>id</code></td><td>uuid, PK</td><td></td></tr>
+      <tr><td><code>collegeId</code></td><td>uuid, FK</td><td>not null</td></tr>
+      <tr><td><code>name</code></td><td>text</td><td>not null</td></tr>
+      <tr><td><code>organizingClub</code></td><td>text</td><td>not null — club/department name</td></tr>
+      <tr><td><code>eventDate</code></td><td>date</td><td>not null</td></tr>
+      <tr><td><code>createdByUserId</code></td><td>uuid, FK → User</td><td>not null — must hold <code>ORGANIZER</code> (§6.8)</td></tr>
+    </table></div>
+
+    <div class="tbl-wrap"><table class="schema">
+      <tr><th>EventCouponRequest</th><th></th><th></th></tr>
+      <tr><td><code>id</code></td><td>uuid, PK</td><td></td></tr>
+      <tr><td><code>collegeId</code>, <code>eventId</code></td><td>uuid, FK</td><td>not null</td></tr>
+      <tr><td><code>mealType</code></td><td>enum <code>MealType</code></td><td>not null</td></tr>
+      <tr><td><code>requestedQuantity</code></td><td>integer</td><td>not null, <b>CHECK &gt; 0</b></td></tr>
+      <tr><td><code>approvedQuantity</code></td><td>integer</td><td>nullable until a decision is made</td></tr>
+      <tr><td><code>generatedQuantity</code></td><td>integer</td><td>not null, default 0 — see §2.11</td></tr>
+      <tr><td><code>distributedQuantity</code></td><td>integer</td><td>not null, default 0 — see §2.11</td></tr>
+      <tr><td><code>status</code></td><td>enum <code>RequestStatus</code></td><td><span class="enum-list"><b>SUBMITTED</b> | <b>APPROVED</b> | <b>REJECTED</b></span></td></tr>
+      <tr><td><code>createdByUserId</code></td><td>uuid, FK → User</td><td>not null (the organizer)</td></tr>
+    </table></div>
+    <p><b>Checks</b> (the heart of §2.11): <code>generatedQuantity &gt;= 0</code>, <code>generatedQuantity &lt;= approvedQuantity</code> (vacuously true while <code>approvedQuantity</code> is null, since generation is blocked before approval anyway), <code>distributedQuantity &gt;= 0</code>, <code>distributedQuantity &lt;= generatedQuantity</code>. Index <code>(collegeId, status)</code>.</p>
+
+    <div class="tbl-wrap"><table class="schema">
+      <tr><th>ApprovalRecord</th><th></th><th></th></tr>
+      <tr><td><code>id</code>, <code>eventCouponRequestId</code></td><td>uuid, FK</td><td>not null</td></tr>
+      <tr><td><code>decision</code></td><td>enum</td><td><span class="enum-list"><b>APPROVED</b> | <b>REJECTED</b> | <b>MODIFIED</b></span></td></tr>
+      <tr><td><code>decidedQuantity</code></td><td>integer</td><td>nullable (null when <code>REJECTED</code>)</td></tr>
+      <tr><td><code>remarks</code></td><td>text</td><td>nullable</td></tr>
+      <tr><td><code>decidedByUserId</code></td><td>uuid, FK → User</td><td>not null — must hold <code>APPROVING_AUTHORITY</code></td></tr>
+      <tr><td><code>decidedAt</code></td><td>timestamptz</td><td>default now()</td></tr>
+    </table></div>
+    <p>Append-only — a request can accumulate several <code>ApprovalRecord</code>s (e.g. resubmitted after rejection, or quantity later modified), giving a full decision history instead of a single overwritten status field. <span class="new-tag">REV 2.1</span> A <code>MODIFIED</code> decision that would lower <code>approvedQuantity</code> below what's already been generated is rejected before it ever reaches this table — see §4.7.</p>
+
+    <div class="tbl-wrap"><table class="schema">
+      <tr><th>GuestInvitation</th><th></th><th></th></tr>
+      <tr><td><code>id</code></td><td>uuid, PK</td><td></td></tr>
+      <tr><td><code>collegeId</code>, <code>eventCouponRequestId</code></td><td>uuid, FK</td><td>not null</td></tr>
+      <tr><td><code>email</code></td><td>text</td><td>not null — as uploaded</td></tr>
+      <tr><td><code>name</code></td><td>text</td><td>nullable</td></tr>
+      <tr><td><code>googleSub</code></td><td>text</td><td>nullable until first sign-in — see §6.6</td></tr>
+      <tr><td><code>expiresAt</code></td><td>timestamptz</td><td>nullable</td></tr>
+      <tr><td><code>revokedAt</code>, <code>revokedByUserId</code>, <code>revokeReason</code></td><td>timestamptz / uuid / text</td><td>all nullable</td></tr>
+      <tr><td><code>firstClaimedAt</code>, <code>lastAccessAt</code></td><td>timestamptz</td><td>nullable</td></tr>
+    </table></div>
+    <p><b>Unique</b> partial index <code>(eventCouponRequestId, email) WHERE revokedAt IS NULL</code> — one <i>active</i> invitation per email per request, but a revoked one can be reissued as a fresh row without a history-destroying update. <b>Unique</b> partial index <code>(googleSub) WHERE googleSub IS NOT NULL</code> — one Google identity can't be bound to two invitations. A row is usable right now only if <code>revokedAt IS NULL AND (expiresAt IS NULL OR expiresAt &gt; now())</code> — computed at check time, not stored as a status, so there's nothing to keep in sync.</p>
+
+    <div class="tbl-wrap"><table class="schema">
+      <tr><th>CouponBatch</th><th></th><th></th></tr>
+      <tr><td><code>id</code></td><td>uuid, PK</td><td></td></tr>
+      <tr><td><code>collegeId</code> <span class="new-tag">REV 2.1</span>, <code>eventCouponRequestId</code></td><td>uuid, FK</td><td>not null — <code>collegeId</code> was missing in Rev. 2; needed for the composite FK in §2.9</td></tr>
+      <tr><td><code>quantity</code></td><td>integer</td><td>not null, <b>CHECK &gt; 0</b></td></tr>
+      <tr><td><code>generatedByUserId</code>, <code>generatedAt</code></td><td>uuid / timestamptz</td><td>not null — must hold <code>KITCHEN_ADMIN</code></td></tr>
+      <tr><td><code>distributedByUserId</code>, <code>distributedAt</code></td><td>uuid / timestamptz</td><td>both nullable — set later, §2.11</td></tr>
+    </table></div>
+
+    <div class="tbl-wrap"><table class="schema">
+      <tr><th>ComplimentaryCoupon</th><th></th><th></th></tr>
+      <tr><td><code>id</code></td><td>uuid, PK</td><td></td></tr>
+      <tr><td><code>collegeId</code>, <code>eventCouponRequestId</code>, <code>couponBatchId</code></td><td>uuid, FK</td><td>not null</td></tr>
+      <tr><td><code>guestInvitationId</code></td><td>uuid, FK</td><td>nullable, <b>unique when not null</b> — one coupon per guest</td></tr>
+      <tr><td><code>tokenHash</code></td><td>text</td><td>unique, not null — same hashing discipline as paid tickets (§4.1)</td></tr>
+      <tr><td><code>status</code></td><td>enum <code>CouponStatus</code></td><td><span class="enum-list"><b>GENERATED</b> → <b>DISTRIBUTED</b> → <b>CLAIMED</b> → <b>REDEEMED</b></span>, or terminal <b>VOID</b></td></tr>
+      <tr><td><code>voidReason</code></td><td>text</td><td>nullable</td></tr>
+    </table></div>
+    <div class="callout risk"><b><span class="new-tag">REV 2.1</span> Open policy question: which states can staff redeem from?</b> §3.5's diagram hedges this as "<code>WHERE status='CLAIMED' (or 'DISTRIBUTED')</code>" because it was never actually decided. Two real options: (a) <b>CLAIMED-only</b> — a guest must have signed in and viewed the coupon at least once before it's redeemable, which guarantees the <code>googleSub</code> binding (§6.6) happened before anyone scans it; or (b) <b>DISTRIBUTED-or-CLAIMED</b> — redeemable as soon as it's handed to the organizer, which covers a guest who's shown a forwarded screenshot/printout without ever opening the app themselves. This is a product policy call, not an engineering one — kept open for sign-off in §11.5 rather than decided here. Whichever is chosen, the redemption <code>WHERE</code> clause in §4.3 just lists the allowed starting state(s); the atomic-<code>UPDATE</code> mechanism itself is unaffected.</div>
+    <p>Index <code>(eventCouponRequestId, status)</code>, <code>(collegeId)</code>. A coupon is auto-assigned to the next unassigned <code>GuestInvitation</code> for its request at the moment its batch is generated — see §2.11 — so "generated" and "assigned to a guest" happen together, not as two separate manual steps.</p>
+
+    <div class="tbl-wrap"><table class="schema">
+      <tr><th>CouponRedemption</th><th></th><th></th></tr>
+      <tr><td><code>id</code>, <code>collegeId</code></td><td>uuid, FK</td><td>not null</td></tr>
+      <tr><td><code>couponId</code></td><td>uuid, FK</td><td>unique — one redemption per coupon</td></tr>
+      <tr><td><code>eventCouponRequestId</code></td><td>uuid, FK</td><td>denormalized for reporting joins</td></tr>
+      <tr><td><code>redeemedByUserId</code>, <code>redeemedAt</code></td><td>uuid / timestamptz</td><td>not null — the <code>kitchen_staff</code> who scanned it</td></tr>
+    </table></div>
+
+    <h3>2.11 Coupon quantity accounting — exact source of truth for every count <span class="new-tag">NEW, CRITICAL</span></h3>
+    <p>Six of the eight numbers <code>CLAUDE.md</code> §8.5 asks the dashboard to track are <i>never</i> stored as a running total — they're computed live from <code>ComplimentaryCoupon.status</code> so they can never drift. Only two are stored counters, and both are written under one specific, concurrency-safe discipline (§4.5).</p>
+    <div class="tbl-wrap"><table>
+      <tr><th>Count</th><th>Source of truth</th></tr>
+      <tr><td>Requested</td><td><code>EventCouponRequest.requestedQuantity</code> — set once at creation, immutable</td></tr>
+      <tr><td>Approved</td><td><code>EventCouponRequest.approvedQuantity</code> — set/overwritten only by a new <code>ApprovalRecord</code>, and only via the conditional <code>UPDATE</code> in §4.7 that refuses to lower it below <code>generatedQuantity</code></td></tr>
+      <tr><td><b>Generated</b></td><td><code>EventCouponRequest.generatedQuantity</code> — a <b>stored running counter</b>, incremented only inside the same transaction that inserts a <code>CouponBatch</code> row (§4.5). Never written any other way.</td></tr>
+      <tr><td><b>Distributed</b></td><td><code>EventCouponRequest.distributedQuantity</code> — a <b>stored running counter</b>, incremented only inside the same transaction as the conditional, exactly-once <code>distributedAt</code> transition in §4.6.</td></tr>
+      <tr><td>Claimed</td><td><code>COUNT(ComplimentaryCoupon) WHERE status IN ('CLAIMED','REDEEMED')</code> — computed live</td></tr>
+      <tr><td>Redeemed</td><td><code>COUNT(ComplimentaryCoupon) WHERE status = 'REDEEMED'</code> — must always equal <code>COUNT(CouponRedemption)</code> for the same request; a mismatch is a bug, and §8 includes a test that asserts the two counts agree</td></tr>
+      <tr><td>Unused</td><td><code>generatedQuantity − redeemed − void</code>, computed at report time</td></tr>
+      <tr><td>Expired</td><td><code>COUNT(ComplimentaryCoupon)</code> where <code>status NOT IN ('REDEEMED','VOID')</code> and the event's <code>eventDate &lt; today</code> — computed live; there is no background job that writes an "expired" status (§9.5). <span class="new-tag">REV 2.1</span> Basis is <code>Event.eventDate</code>, not a separate meal/redemption-window timestamp, because V1 models one meal type per request, not a time-of-day service window — flagged as a working assumption in §11.5, not a settled policy, in case a future multi-day or multi-sitting event needs a finer basis.</td></tr>
+    </table></div>
+    <div class="callout risk"><b>Why not just a database <code>CHECK</code> on the aggregate?</b> A plain <code>CHECK (generated_quantity &lt;= approved_quantity)</code> is necessary but <i>not sufficient</i> on its own: it stops an individual row from ever holding an invalid value, but it does nothing to coordinate two concurrent transactions that each read the current total, compute "mine fits," and then write — that's a classic read-then-write race, and the <code>CHECK</code> only catches it if the race happens to be won by the transaction that would have violated the limit anyway. The real fix is in §4.5: a single atomic conditional <code>UPDATE</code> that re-reads the committed total at the moment it takes the row's lock. The <code>CHECK</code> stays as a second line of defense against a future bug that writes to this table outside the proper service function — exactly the same "trust the database, not just the code" discipline as cutoff enforcement.</div>
+  </section>
+
+  <section id="s3">
+    <span class="section-num">03</span>
+    <h2>Booking &amp; payment lifecycle</h2>
+
+    <h3>3.1 State machines</h3>
+    <div class="grid-cards">
+      <pre class="mermaid">
+stateDiagram-v2
+  [*] --> PENDING_PAYMENT: create booking
+  PENDING_PAYMENT --> CONFIRMED: simulated payment succeeds
+  PENDING_PAYMENT --> EXPIRED: simulated failure
+  CONFIRMED --> CONFIRMED: reschedule (pre-cutoff)
+  CONFIRMED --> CANCELLED: cancel / override
+  CONFIRMED --> REDEEMED: ticket scanned
+  REDEEMED --> [*]
+  CANCELLED --> [*]
+  EXPIRED --> [*]
+      </pre>
+      <pre class="mermaid">
+stateDiagram-v2
+  [*] --> PENDING
+  PENDING --> SUCCEEDED: simulated gateway auto-confirms
+  PENDING --> FAILED: simulated failure path
+  SUCCEEDED --> REFUNDED: admin override cancels booking
+  FAILED --> [*]
+  REFUNDED --> [*]
+      </pre>
+      <pre class="mermaid">
+stateDiagram-v2
+  [*] --> ISSUED: payment SUCCEEDED
+  ISSUED --> REDEEMED: staff scan (atomic, one-time)
+  ISSUED --> VOID: booking cancelled/overridden unredeemed
+  REDEEMED --> [*]
+  VOID --> [*]
+      </pre>
+    </div>
+    <p><b>Booking</b> · <b>Payment</b> · <b>Ticket</b>, left to right. They're modeled as three separate state machines — even though in V1 <code>PENDING_PAYMENT</code>/<code>PENDING</code>/<code>ISSUED</code> are so fast they're barely observable — so that plugging in a real payment gateway later (where "pending" can last minutes, waiting on a webhook) is a change to the <i>payments</i> service only, not a schema rewrite.</p>
+
+    <h3>3.2 Invalid transitions (enforced in the service layer)</h3>
+    <div class="tbl-wrap"><table class="schema">
+      <tr><th>Attempted transition</th><th>Why it's rejected</th></tr>
+      <tr><td>Reschedule/cancel a <code>CONFIRMED</code> booking past its meal's cutoff</td><td>Cutoff is a hard backend rule (<code>CLAUDE.md</code> §5); self-service never bypasses it</td></tr>
+      <tr><td>Reschedule/cancel a <code>REDEEMED</code> or <code>CANCELLED</code> booking</td><td>Terminal states — only an admin override can touch them, and only with a logged reason</td></tr>
+      <tr><td>Redeem a ticket whose booking isn't <code>CONFIRMED</code></td><td>e.g. already <code>REDEEMED</code> or <code>CANCELLED</code> — ticket status already reflects this, but it's checked on both objects</td></tr>
+      <tr><td>Book a <code>MealSchedule</code> with <code>isAvailable = false</code></td><td>Kitchen has pulled the whole service (closure, no ration)</td></tr>
+      <tr><td>Reschedule into a slot the student already holds a booking for</td><td>Would violate the <code>(userId, mealScheduleId)</code> unique constraint — surfaced as a clear 409, not a 500</td></tr>
+    </table></div>
+
+    <h3>3.3 End-to-end sequence</h3>
+    <pre class="mermaid">
+sequenceDiagram
+  actor S as Student
+  participant FE as Frontend
+  participant API as Backend (bookings)
+  participant DB as Postgres
+  actor Staff as Kitchen staff
+
+  S->>FE: pick meal + date
+  FE->>API: GET /api/menu?date=
+  API->>DB: read MealConfig + MealSchedule
+  API-->>FE: price, cutoff status
+
+  S->>FE: tap "Book"
+  FE->>API: POST /api/bookings
+  Note over API,DB: one transaction
+  API->>DB: insert Booking (PENDING_PAYMENT)
+  API->>DB: insert Payment (SUCCEEDED, simulated)
+  API->>DB: update Booking → CONFIRMED
+  API->>DB: insert Ticket (ISSUED, tokenHash)
+  API-->>FE: booking + QR payload
+
+  Note over S,Staff: later, at the counter
+  S->>Staff: shows QR
+  Staff->>API: POST /api/staff/tickets/redeem
+  API->>DB: UPDATE Ticket SET REDEEMED WHERE status='ISSUED'
+  API->>DB: insert Attendance, update Booking → REDEEMED
+  API-->>Staff: student name + meal, confirmed
+    </pre>
+
+    <h3>3.4 Transaction boundaries &amp; failure recovery</h3>
+    <div class="callout decision"><b>Decision.</b> Because V1 payment is simulated (no real gateway round-trip to wait on), <code>create booking → simulate payment → issue ticket</code> runs as <b>one Prisma <code>$transaction</code></b>. If any step throws, Postgres rolls back all three writes — a student can never end up CONFIRMED with no ticket, or charged with no booking. If/when a real gateway is added, this three-step block is exactly what splits into "reserve, then confirm asynchronously on webhook" — flagged in §11 as a real future change, not a hidden gap today.</div>
+    <p><span class="new-tag">REV 2.1</span> Within this transaction, the payment step always writes a <code>PaymentAttempt</code> row first (§2.6) — <code>SUCCEEDED</code> in the normal simulated case, <code>FAILED</code> on the simulated-failure path that drives <code>Booking</code> to <code>EXPIRED</code> — before the <code>Payment</code> row itself is created/updated. This is what lets a failed attempt and a later successful retry both remain visible in the booking's history instead of one overwriting the other.</p>
+    <p><b>Duplicate submissions.</b> A double-tapped "Book Now" sends two near-simultaneous <code>POST /api/bookings</code> for the same <code>(userId, mealScheduleId)</code>. The second <code>INSERT</code> fails on the unique constraint (Postgres error code <code>23505</code>); the service catches specifically that error and returns the <i>first</i> booking instead of a generic 500 — the request becomes idempotent by construction, not by a client-sent idempotency key. For operations without a natural unique constraint (e.g. admin overrides), an <code>Idempotency-Key</code> header is the general-purpose version of the same idea — worth knowing, not required in V1's limited surface for it.</p>
+
+    <h3>3.5 The coupon lifecycle, end to end <span class="new-tag">NEW</span></h3>
+    <p>The coupon workflow deliberately does <i>not</i> reuse the booking state machine above — it has its own shape because it passes through more hands (organizer → approver → kitchen admin → guest → staff) before anyone redeems anything. The diagram below shows the first approval only; a later quantity revision by the Approving Authority follows the same "Organizer/App" lane but through the concurrency-safe modification path in §4.7 instead.</p>
+    <pre class="mermaid">
+sequenceDiagram
+  actor Org as Organizer
+  participant API as Backend (events)
+  participant DB as Postgres
+  actor App as Approving Authority
+  actor KA as Kitchen Admin
+  actor Guest
+  actor Staff as Kitchen Staff
+
+  Org->>API: POST /events, POST /requests, upload guest emails
+  API->>DB: insert Event, EventCouponRequest(SUBMITTED), GuestInvitation rows
+
+  App->>API: POST /requests/:id/decision {APPROVED, quantity}
+  API->>DB: check requester != approver; insert ApprovalRecord; set approvedQuantity
+
+  KA->>API: POST /requests/:id/batches {quantity}
+  Note over API,DB: atomic conditional UPDATE (§2.11/§4.5)
+  API->>DB: generatedQuantity += quantity (only if it still fits)
+  API->>DB: insert CouponBatch; insert N ComplimentaryCoupon rows, auto-assigned to guests
+  KA->>API: PATCH /batches/:id/distribute
+  Note over API,DB: conditional, exactly-once UPDATE (§4.6)
+  API->>DB: distributedQuantity += batch.quantity; coupons → DISTRIBUTED
+
+  Guest->>API: Google sign-in (no domain check) → matches GuestInvitation
+  API->>DB: bind googleSub on first sign-in; coupon → CLAIMED
+  API-->>Guest: coupon + QR
+
+  Guest->>Staff: shows QR at the event
+  Staff->>API: POST /scan/redeem {type:'C', couponId, token}
+  API->>DB: atomic UPDATE ... WHERE status='CLAIMED' (or 'DISTRIBUTED')
+  API->>DB: insert CouponRedemption; coupon → REDEEMED
+    </pre>
+  </section>
+
+  <section id="s4">
+    <span class="section-num">04</span>
+    <h2>QR &amp; coupon security / concurrency</h2>
+
+    <h3>4.1 Token generation &amp; storage</h3>
+    <pre>const rawToken = crypto.randomBytes(32).toString('base64url');   // goes into the QR
+const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex'); // goes into the DB</pre>
+    <p>The QR encodes <code>{ ticketId, rawToken }</code> — never <code>ticketId</code> alone. <code>ticketId</code> identifies <i>which</i> ticket; <code>rawToken</code> proves the holder actually has the real ticket, the same way a password proves identity. The database stores only <code>tokenHash</code>, exactly as it would store a password hash: if the database were ever read by someone unauthorized, they'd get hashes that can't be turned back into a working ticket. A coupon's token is generated and stored the identical way (§2.10).</p>
+
+    <h3>4.2 Redemption — verification steps</h3>
+    <ol>
+      <li>Staff app scans QR → extracts <code>{ticketId, rawToken}</code>, sends <code>POST /api/staff/tickets/redeem</code> (or the unified <code>/api/scan/redeem</code>, §5).</li>
+      <li>Load the ticket by <code>ticketId</code>, joined to its booking, student and meal schedule.</li>
+      <li>Check <code>ticket.collegeId === staff.collegeId</code> — a staff member can never redeem another college's ticket, even one somehow guessed.</li>
+      <li>Check <code>sha256(rawToken) === ticket.tokenHash</code> — proves possession of the real token.</li>
+      <li>Check <code>ticket.status === 'ISSUED'</code> and <code>booking.mealDate</code> is <i>today</i> in Asia/Kolkata — a breakfast ticket from yesterday or a dinner ticket for tomorrow is rejected.</li>
+      <li>Only if every check passes: the atomic redemption below.</li>
+    </ol>
+
+    <h3>4.3 The concurrency-safe redemption write</h3>
+    <pre>UPDATE "Ticket"
+SET status = 'REDEEMED', redeemed_at = now(), redeemed_by_user_id = $staffId
+WHERE id = $ticketId AND status = 'ISSUED';
+-- Prisma: prisma.ticket.updateMany({ where: { id, status: 'ISSUED' }, data: {...} })
+-- then check result.count === 1</pre>
+    <div class="callout decision">
+    <b>Why this is safe under concurrency.</b> This is a compare-and-swap: the <code>WHERE status = 'ISSUED'</code> clause is the "compare," the <code>SET status = 'REDEEMED'</code> is the "swap." If two staff devices scan the same physical ticket at nearly the same instant, Postgres serializes the two <code>UPDATE</code>s against that row using its own row-level locking — whichever runs first flips the status and returns <code>count = 1</code>; the second one's <code>WHERE</code> clause no longer matches anything, so it affects <code>count = 0</code> rows. No application-level mutex or distributed lock is needed; the database's row lock during the <code>UPDATE</code> statement <i>is</i> the lock. The alternative — <code>SELECT</code> the ticket, check its status in JS, then <code>UPDATE</code> — has a race window between the read and the write (a classic <b>TOCTOU</b> bug: time-of-check to time-of-use) where two requests can both pass the check before either writes. The single conditional <code>UPDATE</code> closes that window entirely. The coupon redemption write (§4.5, §5) uses the identical pattern against <code>ComplimentaryCoupon</code>.
+    </div>
+    <p>On <code>count === 1</code>: insert an <code>Attendance</code> row and set <code>Booking.status = 'REDEEMED'</code>, in the same transaction. On <code>count === 0</code>: re-fetch the ticket's current state and respond <code>409</code> with "already redeemed at <i>&lt;time&gt;</i> by <i>&lt;staff&gt;</i>" — never a bare failure.</p>
+
+    <h3>4.4 Manual (auditable) redemption</h3>
+    <p>When a phone is dead or a QR won't scan, staff can look a student up by name/roll number and redeem manually. This still only requires a reason from a short dropdown (plus an optional note), and writes <code>Attendance.method = 'MANUAL_OVERRIDE'</code> alongside an <code>AuditLog</code> entry. <code>kitchen_staff</code> is allowed to do this directly — restricting it to admin-only would be impractical for someone actually standing at the counter — but every manual redemption is surfaced in admin's daily audit view, trading a small amount of trust for operational reality rather than hiding the trade-off.</p>
+
+    <h3>4.5 Concurrency-safe coupon generation (the locked-counter pattern) <span class="new-tag">NEW, CRITICAL</span></h3>
+    <p>Redemption concurrency (§4.3) is "only one of these can win" — a boolean flip. Generation concurrency is a different shape: "the running total must never cross a line," across however many separate batch-generation calls happen, possibly from two different Kitchen Admins at once. The fix is the same family of technique — a single atomic statement whose <code>WHERE</code> clause re-checks the live value — but incrementing a counter instead of flipping a flag.</p>
+    <div class="callout new"><b><span class="new-tag">REV 2.1</span> Prisma naming convention, stated once here.</b> Every model below uses camelCase fields in the Prisma schema, mapped to snake_case SQL columns with <code>@map("snake_case_name")</code> on each field and <code>@@map("snake_case_table")</code> on each model (e.g. <code>generatedQuantity Int @map("generated_quantity")</code> on a model mapped with <code>@@map("event_coupon_request")</code>). The raw SQL in this section uses exactly those mapped snake_case identifiers, so it is directly executable against the schema these tables describe — not illustrative pseudo-SQL.</div>
+    <p><span class="new-tag">REV 2.1</span> Rev. 2's Prisma snippet (<code>updateMany({ where: { generatedQuantity: { lte: approvedQuantity - batchQty } } } )</code>) was wrong: Prisma's ordinary filter objects can only compare a column against a literal or a bound parameter, never against <i>another column on the same row</i>. <code>approvedQuantity - batchQty</code> there is not a value Prisma can compute inside a <code>where</code> — there is no Prisma Client API for "this column's value, relative to that column's value." The comparison has to be expressed as real SQL, via <code>$executeRaw</code>, inside the same <code>$transaction</code> as the rest of the batch-generation work:</p>
+    <pre>const result = await prisma.$transaction(async (tx) => {
+  const [{ affected }] = await tx.$queryRaw&lt;{ affected: number }[]&gt;`
+    WITH updated AS (
+      UPDATE event_coupon_request
+      SET generated_quantity = generated_quantity + ${batchQty}
+      WHERE id = ${requestId}
+        AND status = 'APPROVED'
+        AND generated_quantity + ${batchQty} &lt;= approved_quantity
+      RETURNING 1
+    )
+    SELECT count(*)::int AS affected FROM updated;
+  `;
+  if (affected === 0) {
+    throw new BatchExceedsApprovalError();   // triggers rollback; 409 to the client
+  }
+  const batch = await tx.couponBatch.create({ data: { eventCouponRequestId: requestId, quantity: batchQty, generatedByUserId: staffId } });
+  await tx.complimentaryCoupon.createMany({ data: coupons /* batchQty rows, status GENERATED */ });
+  return batch;
+});</pre>
+    <p><code>$queryRaw</code> (or <code>$executeRaw</code> for a plain row-count) is Prisma's escape hatch for exactly this case: a conditional <code>UPDATE</code> whose <code>WHERE</code> clause compares two columns of the same row. The template-literal placeholders (<code>${batchQty}</code>, <code>${requestId}</code>) are sent as bound parameters, not string-interpolated into the SQL text — Prisma's tagged-template raw-query API parameterizes them automatically, which is what keeps this safe from SQL injection despite looking like string interpolation. The affected-row count is read from the query result (here, via a <code>RETURNING</code> + count, since <code>$executeRaw</code>'s own return value is the row count as a plain number and either form works); <code>affected === 0</code> means the <code>WHERE</code> clause matched nothing — either the request wasn't <code>APPROVED</code>, or generating this batch would have exceeded <code>approved_quantity</code> — and the surrounding <code>$transaction</code> callback throws, which rolls back everything, including the <code>CouponBatch</code>/<code>ComplimentaryCoupon</code> writes that haven't happened yet.</p>
+    <div class="callout decision">
+    <b>Why two concurrent Kitchen Admins can't both succeed past the cap.</b> Say <code>approvedQuantity = 50</code> and <code>generatedQuantity = 40</code>, and two admins each try to generate a batch of <code>5</code> at the same instant. Postgres takes a row lock on the <code>EventCouponRequest</code> row for whichever <code>UPDATE</code> arrives first; that one's <code>WHERE</code> clause sees <code>40 + 5 = 45 &lt;= 50</code>, succeeds, and commits <code>generatedQuantity = 45</code>. Only then does Postgres let the second <code>UPDATE</code> acquire the lock — and <i>it</i> evaluates its <code>WHERE</code> clause against the now-current value of <code>45</code>, not the stale <code>40</code> it might have read earlier: <code>45 + 5 = 50 &lt;= 50</code> — still fine, both succeed, total is exactly <code>50</code>. Try a third concurrent request for <code>5</code> more: it sees <code>50 + 5 = 55 &gt; 50</code>, its <code>WHERE</code> clause matches zero rows, <code>affected === 0</code>, and the service rejects it with a clear "would exceed approved quantity" error. No explicit <code>SELECT FOR UPDATE</code> or application-level lock is needed — the row lock Postgres already takes to perform the <code>UPDATE</code> is the lock, and it's held across the entire read-and-decide-and-write, closing exactly the gap a separate read-then-write would leave open.
+    </div>
+    <p>On success, in the <i>same transaction</i>: insert the <code>CouponBatch</code> row, insert <code>batchQty</code> new <code>ComplimentaryCoupon</code> rows (status <code>GENERATED</code>), and auto-assign each to the next <code>GuestInvitation</code> for that request that doesn't already have a coupon (ordered by upload row order). If there are fewer unassigned invitations than the requested batch size, the batch is rejected before the counter is even touched — you can't generate more coupons than there are guests to receive them, a second natural cap beyond <code>approvedQuantity</code>.</p>
+
+    <h3>4.6 Concurrency- and retry-safe coupon distribution <span class="new-tag">REV 2.1, CHANGED</span></h3>
+    <p>Rev. 2 treated distribution as "a plain transaction is fine, there's no scarce cap to race over." That's wrong in a different way than generation: there's no <i>cap</i> being raced over, but there is a state transition that must happen <i>exactly once</i> — and a network retry (the Kitchen Admin's app times out and resubmits, or two taps on "Distribute" register as two requests) is exactly the kind of duplicate call that, under a plain transaction, would increment <code>distributedQuantity</code> twice for one real distribution event. The fix is the same shape as redemption (§4.3): a conditional <code>UPDATE</code> that can only succeed once.</p>
+    <pre>UPDATE coupon_batch
+SET distributed_at = now(), distributed_by_user_id = $staffId
+WHERE id = $batchId AND distributed_at IS NULL
+RETURNING id;
+-- affected === 0  → this batch was already distributed; return its existing
+--                    distributedAt/distributedByUserId, not an error — the
+--                    retry is a no-op, which is what "idempotent" means here
+-- affected === 1  → proceed, in the SAME transaction:</pre>
+    <p>Only the call whose conditional <code>UPDATE</code> actually matched a row (<code>affected === 1</code>) is allowed to also, in that same transaction: increment <code>EventCouponRequest.distributedQuantity</code> by the batch's quantity, flip every <code>ComplimentaryCoupon</code> in the batch from <code>GENERATED</code> to <code>DISTRIBUTED</code>, and write the <code>AuditLog</code> row for the distribution event. A second, concurrent, or retried call for the same <code>batchId</code> gets <code>affected === 0</code> from the conditional <code>UPDATE</code> — proof that someone else's transaction already won — and simply returns the batch's current (already-distributed) state instead of repeating any of those four writes. This is the general pattern for "mark this done, exactly once, and tell a duplicate caller what already happened" — the same compare-and-swap idea as §4.3 and §4.5, applied to a one-time transition rather than a counter or a boolean flip.</p>
+
+    <h3>4.7 Concurrency-safe approval modification <span class="new-tag">NEW, REV 2.1</span></h3>
+    <p>An Approving Authority can revise an already-approved request's quantity (<code>ApprovalRecord.decision = 'MODIFIED'</code>, §2.10). The one invariant that must never break: <b>the approved quantity can never be lowered below what's already been generated</b> — doing so would retroactively make already-issued coupons illegitimate. This is enforced with the identical conditional-<code>UPDATE</code> technique as §4.5 and §4.6, run against the same row:</p>
+    <pre>UPDATE event_coupon_request
+SET approved_quantity = $newQuantity
+WHERE id = $requestId
+  AND status IN ('SUBMITTED', 'APPROVED')
+  AND $newQuantity &gt;= generated_quantity
+RETURNING approved_quantity;
+-- affected === 0 → reject: either the request is in the wrong state, or
+--                  newQuantity would be lower than what's already generated.
+--                  No ApprovalRecord is written and approvedQuantity is untouched.
+-- affected === 1 → in the SAME transaction, insert the ApprovalRecord
+--                  (decision: 'MODIFIED', decidedQuantity: newQuantity).</pre>
+    <div class="callout decision"><b>Why this coordinates correctly with concurrent generation, with no extra locking scheme.</b> A modify-approval call and a batch-generation call (§4.5) both issue a conditional <code>UPDATE</code> against the <i>same</i> <code>EventCouponRequest</code> row. Postgres's ordinary row-level locking during an <code>UPDATE</code> already serializes any two statements that touch the same row — there is nothing extra to add. If generation commits first (raising <code>generatedQuantity</code>), a modify-approval attempt to lower <code>approvedQuantity</code> below that new, higher value then fails its own <code>WHERE</code> clause and is rejected. If the modify-approval commits first (lowering <code>approvedQuantity</code>), a subsequent generation attempt is evaluated against that new, lower cap, exactly as described in §4.5 — it simply has less room than it did a moment ago. Neither operation needs to know the other exists; each is just an atomic conditional <code>UPDATE</code> on a row Postgres is already serializing for them.</div>
+  </section>
+
+  <section id="s5">
+    <span class="section-num">05</span>
+    <h2>API design</h2>
+    <p>All responses use one error shape: <code>{ "error": { "code": "CUTOFF_PASSED", "message": "…" } }</code>. List endpoints return <code>{ "data": [...], "meta": { "page", "pageSize", "total" } }</code>. All routes require a valid session unless marked public.</p>
+
+    <h4>Auth</h4>
+    <div class="tbl-wrap"><table>
+      <tr><th>Endpoint</th><th>Role</th><th>Purpose</th><th>Notes</th></tr>
+      <tr><td><span class="pill get">GET</span> <code>/api/auth/google</code></td><td>public</td><td>Redirects to Google's consent screen</td><td>Sets a CSRF <code>state</code> param</td></tr>
+      <tr><td><span class="pill get">GET</span> <code>/api/auth/google/callback</code></td><td>public</td><td>Exchanges code, runs domain + roster gate, creates session</td><td>See §6 for the full decision tree</td></tr>
+      <tr><td><span class="pill post">POST</span> <code>/api/auth/logout</code></td><td>any</td><td>Destroys session</td><td></td></tr>
+      <tr><td><span class="pill get">GET</span> <code>/api/auth/me</code></td><td>any</td><td>Current user + roles</td><td>401 if no session</td></tr>
+    </table></div>
+
+    <h4>Menu &amp; pricing</h4>
+    <div class="tbl-wrap"><table>
+      <tr><th>Endpoint</th><th>Role</th><th>Purpose</th><th>Notes</th></tr>
+      <tr><td><span class="pill get">GET</span> <code>/api/menu?date=</code></td><td>student</td><td>Meals available on a date, price, bookable/cutoff-passed flag</td><td>Cutoff computed server-side, in Asia/Kolkata</td></tr>
+      <tr><td><span class="pill get">GET</span> <code>/api/admin/menu</code></td><td>admin</td><td>List <code>MealConfig</code> rows</td><td></td></tr>
+      <tr><td><span class="pill patch">PATCH</span> <code>/api/admin/menu/:mealType</code></td><td>admin</td><td>Update price / cutoff for a meal type</td><td>Body: <code>{priceInPaise?, cutoffDayOffset?, cutoffTime?}</code></td></tr>
+      <tr><td><span class="pill post">POST</span> <code>/api/admin/menu/schedule</code></td><td>admin</td><td>Create/update a day's <code>MealSchedule</code> (capacity, availability, dishes)</td><td></td></tr>
+    </table></div>
+
+    <h4>Bookings</h4>
+    <div class="tbl-wrap"><table>
+      <tr><th>Endpoint</th><th>Role</th><th>Purpose</th><th>Notes</th></tr>
+      <tr><td><span class="pill post">POST</span> <code>/api/bookings</code></td><td>student</td><td>Create booking (one atomic booking+payment+ticket)</td><td>409 on duplicate slot, 422 past cutoff</td></tr>
+      <tr><td><span class="pill get">GET</span> <code>/api/bookings</code></td><td>student</td><td>List own bookings</td><td>Filter by <code>status</code>, date range</td></tr>
+      <tr><td><span class="pill get">GET</span> <code>/api/bookings/:id</code></td><td>student</td><td>Booking detail incl. QR payload</td><td>404 (not 403) if it belongs to someone else or another college</td></tr>
+      <tr><td><span class="pill patch">PATCH</span> <code>/api/bookings/:id/reschedule</code></td><td>student</td><td>Move to a new <code>mealScheduleId</code></td><td>Both old and new slot's cutoffs are checked</td></tr>
+      <tr><td><span class="pill patch">PATCH</span> <code>/api/bookings/:id/cancel</code></td><td>student</td><td>Cancel pre-cutoff</td><td></td></tr>
+      <tr><td><span class="pill get">GET</span> <code>/api/admin/bookings</code></td><td>admin</td><td>List/filter all bookings</td><td></td></tr>
+      <tr><td><span class="pill post">POST</span> <code>/api/admin/bookings/:id/override</code></td><td>admin</td><td>Force cancel / reschedule / void-ticket</td><td>Body requires <code>{action, reason}</code>; always audited</td></tr>
+    </table></div>
+    <pre>POST /api/bookings
+{ "mealScheduleId": "7c1e…"}
+
+201 →
+{ "id": "a92f…", "status": "CONFIRMED", "mealType": "LUNCH",
+  "mealDate": "2026-11-05", "priceInPaiseAtBooking": 7000,
+  "ticket": { "qrPayload": "a92f….Yx92kP-…" } }</pre>
+
+    <h4>Tickets &amp; redemption</h4>
+    <div class="tbl-wrap"><table>
+      <tr><th>Endpoint</th><th>Role</th><th>Purpose</th><th>Notes</th></tr>
+      <tr><td><span class="pill get">GET</span> <code>/api/tickets/:bookingId</code></td><td>student</td><td>Fetch QR payload for a confirmed booking</td><td></td></tr>
+      <tr><td><span class="pill post">POST</span> <code>/api/staff/tickets/redeem</code></td><td>kitchen_staff, admin</td><td>Validate + atomically redeem</td><td>Body: <code>{ticketId, token}</code>; see §4. Still exists as a direct, ticket-only endpoint; §5's new unified <code>/api/scan/redeem</code> below wraps it for the staff scan UI.</td></tr>
+      <tr><td><span class="pill post">POST</span> <code>/api/staff/tickets/manual-redeem</code></td><td>kitchen_staff, admin</td><td>Redeem without a QR, by booking lookup</td><td>Body requires <code>{bookingId, reason}</code>; always audited</td></tr>
+    </table></div>
+    <pre>POST /api/staff/tickets/redeem
+{ "ticketId": "9f21…", "token": "Yx92kP-…" }
+
+200 → { "status": "REDEEMED", "student": "A. Rao", "mealType": "LUNCH" }
+409 → { "error": { "code": "ALREADY_REDEEMED",
+         "message": "Redeemed at 12:41 PM by staff S. Iyer" } }</pre>
+
+    <h4>Kitchen, feedback, roster &amp; admin</h4>
+    <div class="tbl-wrap"><table>
+      <tr><th>Endpoint</th><th>Role</th><th>Purpose</th></tr>
+      <tr><td><span class="pill post">POST</span> <code>/api/kitchen/ration</code></td><td>kitchen_staff</td><td>Log prepared/issued quantity</td></tr>
+      <tr><td><span class="pill post">POST</span> <code>/api/kitchen/waste</code></td><td>kitchen_staff</td><td>Log waste quantity + reason</td></tr>
+      <tr><td><span class="pill post">POST</span> <code>/api/feedback</code></td><td>student</td><td>Submit feedback for a booking (one per booking)</td></tr>
+      <tr><td><span class="pill get">GET</span> <code>/api/admin/roster</code></td><td>admin</td><td>List roster, filter by active status</td></tr>
+      <tr><td><span class="pill patch">PATCH</span> <code>/api/admin/roster/:id</code></td><td>admin</td><td>Activate/deactivate an entry</td></tr>
+      <tr><td><span class="pill patch">PATCH</span> <code>/api/admin/users/:id/roles</code></td><td>admin</td><td>Grant/revoke a role via <code>UserRole</code> (§6.3)</td></tr>
+      <tr><td><span class="pill post">POST</span> <code>/api/admin/imports/roster?dryRun=</code></td><td>admin</td><td>Upload, preview or commit a roster Excel file</td></tr>
+      <tr><td><span class="pill get">GET</span> <code>/api/admin/exports/bookings?from=&amp;to=</code></td><td>admin</td><td>Export bookings to Excel</td></tr>
+      <tr><td><span class="pill get">GET</span> <code>/api/admin/reports/overview?from=&amp;to=</code></td><td>admin</td><td>Bookings, redemption rate, simulated revenue</td></tr>
+      <tr><td><span class="pill get">GET</span> <code>/api/admin/audit?entityType=&amp;from=&amp;to=</code></td><td>admin</td><td>Audit log, filtered</td></tr>
+    </table></div>
+
+    <h4>Guest authentication &amp; self-service <span class="new-tag">NEW</span></h4>
+    <div class="tbl-wrap"><table>
+      <tr><th>Endpoint</th><th>Session</th><th>Purpose</th><th>Notes</th></tr>
+      <tr><td><span class="pill get">GET</span> <code>/api/guest/auth/google</code></td><td>none</td><td>Redirect to Google — <b>no domain restriction</b></td><td>CSRF <code>state</code>; distinct callback URL from the college path</td></tr>
+      <tr><td><span class="pill get">GET</span> <code>/api/guest/auth/google/callback</code></td><td>none → guest</td><td>Resolve <code>GuestInvitation</code> by <code>sub</code> (returning) or email (first time); bind <code>sub</code>; set guest cookie</td><td>Queries <i>only</i> <code>GuestInvitation</code> — never touches <code>User</code>/<code>RosterEntry</code> (§6.6). No match → 403, no session created.</td></tr>
+      <tr><td><span class="pill post">POST</span> <code>/api/guest/auth/logout</code></td><td>guest</td><td>Clears the guest cookie</td><td></td></tr>
+      <tr><td><span class="pill get">GET</span> <code>/api/guest/me</code></td><td>guest</td><td>This invitation's event, meal, and status</td><td></td></tr>
+      <tr><td><span class="pill get">GET</span> <code>/api/guest/coupon</code></td><td>guest</td><td>The assigned coupon + QR payload</td><td>First call flips <code>DISTRIBUTED → CLAIMED</code> and sets <code>firstClaimedAt</code> — a documented side effect, not hidden</td></tr>
+    </table></div>
+    <div class="callout decision">Every guest endpoint resolves its data from <code>req.guest.guestInvitationId</code> (set by <code>guestAuthGuard</code> from the guest cookie alone) — there is no <code>userId</code> or <code>role</code> field anywhere on a guest request for a bug to accidentally read as a college permission. This is <code>CLAUDE.md</code> §4.8's "structurally different session type," made concrete.</div>
+
+    <h4>Event &amp; coupon-request management <span class="new-tag">NEW</span></h4>
+    <div class="tbl-wrap"><table>
+      <tr><th>Endpoint</th><th>Role</th><th>Purpose</th><th>Notes</th></tr>
+      <tr><td><span class="pill post">POST</span> <code>/api/organizer/events</code></td><td>organizer</td><td>Create an <code>Event</code></td><td></td></tr>
+      <tr><td><span class="pill get">GET</span> <code>/api/organizer/events</code></td><td>organizer</td><td>List own events</td><td>Resource-level: only <code>createdByUserId = self</code></td></tr>
+      <tr><td><span class="pill post">POST</span> <code>/api/organizer/events/:id/requests</code></td><td>organizer</td><td>Create an <code>EventCouponRequest</code> (mealType, requestedQuantity)</td><td></td></tr>
+      <tr><td><span class="pill post">POST</span> <code>/api/organizer/requests/:id/guests?dryRun=</code></td><td>organizer</td><td>Upload the guest email list (Excel)</td><td>Creates an <code>ImportJob</code> of type <code>EVENT_GUEST_LIST</code> through the same <code>imports</code> module as roster/menu uploads (§2.8); only on own request; supports the same dry-run preview</td></tr>
+      <tr><td><span class="pill get">GET</span> <code>/api/organizer/requests/:id</code></td><td>organizer</td><td>Status + live counts (§2.11)</td><td>404, not 403, if it's not theirs</td></tr>
+      <tr><td><span class="pill get">GET</span> <code>/api/approver/requests</code></td><td>approving_authority</td><td>List requests awaiting/under decision, college-scoped</td><td></td></tr>
+      <tr><td><span class="pill post">POST</span> <code>/api/approver/requests/:id/decision</code></td><td>approving_authority</td><td>Approve / reject / modify quantity</td><td>Body <code>{decision, quantity?, remarks}</code>; rejects if <code>requester === self</code> (§2.3, §6.8)</td></tr>
+      <tr><td><span class="pill post">POST</span> <code>/api/kitchen-admin/requests/:id/batches</code></td><td>kitchen_admin</td><td>Generate a batch</td><td>The atomic conditional <code>UPDATE</code> (§4.5); 409 if it would exceed approval</td></tr>
+      <tr><td><span class="pill patch">PATCH</span> <code>/api/kitchen-admin/batches/:id/distribute</code></td><td>kitchen_admin</td><td>Mark a batch distributed</td><td></td></tr>
+      <tr><td><span class="pill get">GET</span> <code>/api/admin/events</code>, <code>/api/admin/requests</code></td><td>admin</td><td>College-wide oversight read access</td><td>Superset of organizer/approver views</td></tr>
+      <tr><td><span class="pill get">GET</span> <code>/api/admin/reports/coupons</code></td><td>admin</td><td>The full funnel (§2.11), by event/club/approver</td><td></td></tr>
+    </table></div>
+
+    <h4>Unified redemption <span class="new-tag">NEW</span></h4>
+    <div class="tbl-wrap"><table>
+      <tr><th>Endpoint</th><th>Role</th><th>Purpose</th><th>Notes</th></tr>
+      <tr><td><span class="pill post">POST</span> <code>/api/scan/redeem</code></td><td>kitchen_staff, kitchen_admin, admin</td><td>Redeem a paid ticket <i>or</i> a coupon from one camera screen</td><td>Body <code>{type:'T'|'C', id, token}</code>; dispatches to the existing <code>/api/staff/tickets/redeem</code> logic or the new coupon-redeem logic (§1.4); response and error shapes identical either way</td></tr>
+    </table></div>
+    <div class="callout risk"><b>No administrative endpoint is reachable from a guest session.</b> <code>guestAuthGuard</code> is the only middleware the three guest routes above are wired to; every organizer/approver/kitchen-admin/admin route uses <code>authGuard</code> + <code>roleGuard([...])</code>. There is no route that accepts either guard — a guest cookie presented to an <code>authGuard</code> route is simply not a college session and is rejected the same way a missing cookie would be.</div>
+  </section>
+
+  <section id="s6">
+    <span class="section-num">06</span>
+    <h2>Auth &amp; authorization</h2>
+
+    <h3>6.1 First-time student login</h3>
+    <pre class="mermaid">
+sequenceDiagram
+  actor S as Student
+  participant FE as Frontend
+  participant API as Backend
+  participant G as Google
+  participant DB as Postgres
+
+  S->>FE: "Sign in with Google"
+  FE->>API: GET /api/auth/google
+  API->>G: redirect (scope: email, profile, openid), state=csrf
+  S->>G: authenticate + consent
+  G->>API: GET /callback?code&state
+  API->>G: exchange code for tokens
+  G-->>API: email, email_verified, name, picture, sub
+  API->>DB: email_verified? domain in CollegeDomain? active RosterEntry?
+  alt any check fails
+    API-->>FE: redirect /login?error=not_eligible
+  else all pass
+    API->>DB: find or create User, resolve UserRole rows
+    API->>DB: create session
+    API-->>FE: redirect, authenticated
+  end
+    </pre>
+    <div class="callout decision"><b>The roster check runs on every login, not just the first one.</b> If admin deactivates a student mid-semester, that student's Google account and email domain still work fine — but their <i>next</i> login is rejected, because the roster-active check re-runs every time, not only at account creation.</div>
+
+    <h3>6.2 Returning login &amp; role-aware entry</h3>
+    <p>On callback, the backend first checks whether a <code>User</code> already exists for this email holding any <b>staff/admin</b> role via <code>UserRole</code> (<code>KITCHEN_STAFF</code>, <code>KITCHEN_ADMIN</code>, <code>ORGANIZER</code>, <code>APPROVING_AUTHORITY</code>, <code>ADMIN</code>, <code>SUPER_ADMIN</code>) — if so, log them straight in; the roster is a <i>student</i> eligibility list and never gates staff. Only if no such privileged account exists does the flow fall through to the student path (verified email → domain → active roster → find-or-create, grant <code>STUDENT</code> via <code>UserRole</code>).</p>
+
+    <h3>6.3 Staff &amp; admin provisioning — no public path, ever</h3>
+    <div class="grid-cards">
+      <div class="card"><b>Bootstrap admin.</b> The very first <code>ADMIN</code> is created by a one-time seed script run manually against the production database by whoever controls deploys (e.g. <code>npm run seed:admin -- --email=…</code>). It is a script with direct DB access, not an HTTP endpoint — nothing remote can trigger it.</div>
+      <div class="card"><b>Promoting someone after that.</b> An existing admin calls <code>PATCH /api/admin/users/:id/roles</code>, which writes a <code>UserRole</code> row (§2.3). If the target hasn't logged in yet, admin instead "invites" by email: a placeholder <code>User</code> row is created with the chosen role already granted; the first time that email actually signs in via Google, it attaches to the existing row instead of going through student provisioning.</div>
+    </div>
+
+    <h3>6.4 RBAC enforcement</h3>
+    <p><code>authGuard</code> middleware resolves the session to <code>req.user = {id, collegeId}</code> from the server-side session store, then loads that user's <code>UserRole</code> rows — never from anything the client sends directly. <code>roleGuard(['ADMIN'])</code> then checks whether <code>req.user</code>'s roles include the required one. Every protected route composes both.</p>
+    <div class="callout risk"><b>Tenant isolation is a discipline, not a library.</b> Every service-layer Prisma query on a tenant-scoped table must include <code>collegeId: req.user.collegeId</code> in its <code>where</code> clause. Treat a query missing that filter as a bug on sight in review. As a stronger second line of defense worth knowing about (optional, not required for the pilot): Postgres has native <b>Row-Level Security</b>, which can enforce this at the database layer itself so even a buggy query can't leak across colleges — a good V1.1 hardening step once the basics are working.</div>
+
+    <h3>6.5 Two distinct authentication flows <span class="new-tag">NEW</span></h3>
+    <pre class="mermaid">
+graph TB
+  subgraph A["A. College login (§6.1-6.4)"]
+    A1["Google OAuth"] --> A2["email_verified?"]
+    A2 --> A3["domain in CollegeDomain?"]
+    A3 --> A4["active RosterEntry? (students only)"]
+    A4 --> A5["find-or-create User<br/>+ UserRole lookup"]
+    A5 --> A6["college session cookie"]
+  end
+  subgraph B["B. Guest login"]
+    B1["Google OAuth<br/>(no domain check)"] --> B2["email_verified?"]
+    B2 --> B3["GuestInvitation lookup<br/>by sub, else by email"]
+    B3 --> B4["not revoked, not expired?"]
+    B4 --> B5["bind sub if first time"]
+    B5 --> B6["guest session cookie"]
+  end
+    </pre>
+    <p>These are not two branches of one function — they are two separate route handlers, two separate callback URLs, two separate cookies, and two separate middlewares. The guest handler's queries touch only <code>GuestInvitation</code>; it has no code path that reads <code>User</code> or <code>RosterEntry</code> at all, which is what makes the critical edge case below a structural guarantee rather than a remembered <code>if</code>-check.</p>
+    <div class="callout risk"><b>The edge case <code>CLAUDE.md</code> calls out explicitly:</b> a current BMSCE student, with a perfectly valid roster-matched college email, signs in through the <i>guest</i> entry point (B) instead of the college one (A) — perhaps by following a link meant for an external guest. They get <i>only</i> a guest session, scoped to one invitation, with zero student access. This isn't decided by a rule that checks "is this email also a student" and chooses to ignore it — flow B simply never asks that question. §8 includes a test that signs in through B with a known college-domain email and asserts the resulting session can't reach a single student route.</div>
+
+    <h3>6.6 Guest identity, lifecycle &amp; edge cases <span class="new-tag">NEW</span></h3>
+    <div class="tbl-wrap"><table>
+      <tr><th>Case</th><th>Design</th></tr>
+      <tr><td>First claim</td><td>Email match only (no <code>sub</code> stored yet) → bind <code>sub</code> on success</td></tr>
+      <tr><td>Stable identity binding</td><td>After first claim, every later sign-in must match the bound Google <code>sub</code>, not just the email — <code>sub</code> is permanent for a Google account, so this survives an email change at Google's end</td></tr>
+      <tr><td>Invitation expiry</td><td><code>GuestInvitation.expiresAt</code>, checked at sign-in time — a plain timestamp comparison, no scheduled job (consistent with §9.5's "no background infra unless proposed")</td></tr>
+      <tr><td>Invitation revocation</td><td>Organizer/approver sets <code>revokedAt</code>/<code>revokeReason</code> — checked at sign-in and at coupon access; written to <code>AuditLog</code></td></tr>
+      <tr><td>Reauthentication</td><td>Identical to first sign-in, just resolved by <code>sub</code> instead of email — no separate "remember me" mechanism needed</td></tr>
+      <tr><td>Device loss / account recovery</td><td>There is nothing BiteCampus-specific to recover — identity is Google's, not ours; signing in again on any device re-creates the session the same way. Flagged in §11 as a deliberate non-feature, not a gap.</td></tr>
+      <tr><td>Email change / mismatch</td><td>A typo'd upload simply never matches on first sign-in; the fix is an organizer/admin correction to the <code>GuestInvitation.email</code> row before the real guest's first claim. No self-service correction in V1.</td></tr>
+      <tr><td>Coupon reassignment</td><td>Unassign the coupon from one <code>GuestInvitation</code>, assign to another, in one transaction; written to <code>AuditLog</code> (action <code>COUPON_REASSIGNED</code>, old/new invitation ids) — reuses the shared audit sink rather than a bespoke table</td></tr>
+      <tr><td>Duplicate guest claims</td><td><code>ComplimentaryCoupon.guestInvitationId</code> unique-when-not-null (§2.10) makes a second coupon for the same invitation a database error, not just an application check</td></tr>
+    </table></div>
+
+    <h3>6.7 Session &amp; cookie design <span class="new-tag">EXPANDED, REV 2.1</span></h3>
+    <p>Two cookies, never one: <code>bc_session</code> (college) and <code>bc_guest_session</code> (guest), each <code>httpOnly</code>, <code>secure</code>, signed, and read by exactly one middleware. <code>authGuard</code> resolves <code>bc_session</code> → <code>{userId, collegeId}</code>, then loads that user's <code>UserRole</code> rows on demand; <code>guestAuthGuard</code> resolves <code>bc_guest_session</code> → <code>{guestInvitationId}</code> and nothing else. The two middlewares produce differently-typed request objects (<code>req.user</code> vs. <code>req.guest</code>) so a route handler written for one shape cannot accidentally be satisfied by the other at compile time, not just at runtime. <b>Neither middleware ever falls back to the other</b> — a <code>bc_guest_session</code> cookie presented to <code>authGuard</code> (or vice versa) is simply not recognized, the same as no cookie at all; there is no shared parsing step where the two could be confused.</p>
+
+    <div class="tbl-wrap"><table class="schema">
+      <tr><th>Session <span class="new-tag">NEW, REV 2.1</span></th><th></th><th></th></tr>
+      <tr><td><code>id</code></td><td>text, PK</td><td>the random session id; this is what the cookie value actually is</td></tr>
+      <tr><td><code>type</code></td><td>enum</td><td><span class="enum-list"><b>COLLEGE</b> | <b>GUEST</b></span></td></tr>
+      <tr><td><code>userId</code></td><td>uuid, FK → User</td><td>nullable; set only when <code>type = COLLEGE</code></td></tr>
+      <tr><td><code>guestInvitationId</code></td><td>uuid, FK → GuestInvitation</td><td>nullable; set only when <code>type = GUEST</code></td></tr>
+      <tr><td><code>createdAt</code>, <code>lastSeenAt</code>, <code>expiresAt</code></td><td>timestamptz</td><td>not null</td></tr>
+      <tr><td><code>revokedAt</code></td><td>timestamptz</td><td>nullable</td></tr>
+    </table></div>
+    <p><b>CHECK</b> <code>(type = 'COLLEGE' AND userId IS NOT NULL AND guestInvitationId IS NULL) OR (type = 'GUEST' AND guestInvitationId IS NOT NULL AND userId IS NULL)</code> — the database itself refuses a session row that mixes the two identities. This is a real, server-side session store (a small Postgres table, not Redis — consistent with the "no infra beyond what's proposed" stance, §9.5), chosen specifically because it's the only design in this document's options that supports the explicit revocation this correction calls for: a signed, stateless JWT can't be revoked before its own expiry without a separate denylist, which is just this table under another name.</p>
+    <div class="grid-cards">
+      <div class="card"><b>Cookie attributes.</b> Both cookies: <code>HttpOnly</code>, <code>Secure</code>, <code>SameSite=Lax</code> (state-changing requests are POST/PATCH, which <code>Lax</code> already blocks cross-site; <code>Strict</code> would also block the OAuth-callback redirect's own cookie delivery, so <code>Lax</code> is the correct choice, not a weaker fallback). <code>Path=/</code> for <code>bc_session</code>; <code>Path=/</code> for <code>bc_guest_session</code> too — scoping by path is not the isolation mechanism here, the two separate cookie <i>names</i> and middlewares are (§6.5).</div>
+      <div class="card"><b>Lifetime.</b> <code>bc_session</code>: a sliding expiry, e.g. 7 days of inactivity, refreshed on each authenticated request by bumping <code>Session.lastSeenAt</code>/<code>expiresAt</code>. <code>bc_guest_session</code>: a short, fixed expiry (e.g. 24 hours) re-issued on each sign-in — a guest's access to one event doesn't need a persistent session the way a returning student's does.</div>
+      <div class="card"><b>Session rotation on login.</b> Every successful OAuth callback (college or guest) <code>destroy</code>s any session id the request already carried and issues a brand-new <code>Session</code> row and cookie value — never reuses a pre-login session id. This is the standard defense against session fixation: nothing an attacker set in the browser <i>before</i> login survives login.</div>
+      <div class="card"><b>Logout.</b> <code>POST /api/auth/logout</code> / <code>POST /api/guest/auth/logout</code> delete the <code>Session</code> row (not just clear the cookie) and clear the cookie. Because the session is server-side, a logout is immediately effective everywhere that session id was in use, not just in the browser that called logout.</div>
+      <div class="card"><b>Revocation on deactivation or role change.</b> Deactivating a <code>User</code> (<code>isActive = false</code>), revoking a <code>GuestInvitation</code>, or changing a <code>User</code>'s roles all, in the same transaction as that change, delete every <code>Session</code> row for that <code>userId</code>/<code>guestInvitationId</code> (or set <code>revokedAt</code> and have <code>authGuard</code>/<code>guestAuthGuard</code> reject any session with it set). The next request bearing that cookie finds no valid session and is treated as logged out — this is what makes "the roster check runs on every login" (§6.1) and "a revoked invitation blocks sign-in" (§6.6) actually bite for someone who is <i>already</i> logged in when the change happens, not only for their next fresh login.</div>
+      <div class="card"><b>CSRF protection.</b> <code>SameSite=Lax</code> already blocks the cross-site POST/PATCH forgery pattern for both cookies. As defense in depth (and because some embedded/in-app browser contexts weaken <code>SameSite</code> enforcement), every state-changing request also requires a synchronizer CSRF token issued alongside the session and echoed back in a custom header (e.g. <code>X-CSRF-Token</code>) — a cross-site request can carry the cookie automatically but cannot read the token to echo it back.</div>
+    </div>
+
+    <h3>6.8 Authorization matrix <span class="new-tag">NEW</span></h3>
+    <div class="tbl-wrap"><table>
+      <tr><th>Resource</th><th>Organizer</th><th>Approving Authority</th><th>Kitchen Admin</th><th>Admin</th><th>Guest</th></tr>
+      <tr><td><code>Event</code> / <code>EventCouponRequest</code></td><td>own only, R/W</td><td>all in college, R + decide</td><td>approved ones, R</td><td>all, R/W</td><td>none</td></tr>
+      <tr><td><code>GuestInvitation</code></td><td>own requests', R/W (upload, reassign, revoke)</td><td>R</td><td>R (for assignment)</td><td>R/W</td><td>own single row, R</td></tr>
+      <tr><td><code>CouponBatch</code> / <code>ComplimentaryCoupon</code></td><td>own requests', R</td><td>R</td><td>own-generated, R/W</td><td>R/W</td><td>own single coupon, R</td></tr>
+      <tr><td><code>CouponRedemption</code></td><td>own requests', R</td><td>R</td><td>R</td><td>R/W</td><td>none</td></tr>
+    </table></div>
+    <p>Every "own" cell is enforced as a resource-level check in the service layer (<code>CLAUDE.md</code> §4.9) — e.g. the organizer endpoints filter by <code>createdByUserId = req.user.id</code> in addition to the role check, never by role alone. College isolation is the same <code>collegeId</code> discipline as every other table (§2.9) — except for the guest, whose session is scoped to a single row by primary key from login onward, which is a stronger guarantee than a filterable list ever is.</p>
+  </section>
+
+  <section id="s7">
+    <span class="section-num">07</span>
+    <h2>Frontend architecture</h2>
+
+    <h3>7.1 Routes <span class="new-tag">EXPANDED</span></h3>
+    <div class="tbl-wrap"><table>
+      <tr><th>Path</th><th>Who</th><th>Purpose</th></tr>
+      <tr><td><code>/</code></td><td>public, no login <span class="new-tag">NEW</span></td><td>Landing page, "Explore BiteCampus — Project Walkthrough" CTA (§9.5)</td></tr>
+      <tr><td><code>/walkthrough</code></td><td>public, no login <span class="new-tag">NEW</span></td><td>Plays the hosted video; makes no authenticated API call</td></tr>
+      <tr><td><code>/login</code></td><td>public</td><td>Google sign-in, error messaging (e.g. "not on this college's roster")</td></tr>
+      <tr><td><code>/app/menu</code></td><td>student</td><td>Browse upcoming meals; book button disabled past cutoff</td></tr>
+      <tr><td><code>/app/bookings</code>, <code>/app/bookings/:id</code></td><td>student</td><td>Booking history, detail, QR, reschedule/cancel</td></tr>
+      <tr><td><code>/app/feedback/:bookingId</code></td><td>student</td><td>Feedback form</td></tr>
+      <tr><td><code>/guest/login</code></td><td>public <span class="new-tag">NEW</span></td><td>Guest sign-in (flow B) — a visually distinct page from <code>/login</code></td></tr>
+      <tr><td><code>/guest</code></td><td>guest session only <span class="new-tag">NEW</span></td><td>One screen: event/meal summary + QR + status. Nothing else exists in this route tree.</td></tr>
+      <tr><td><code>/organizer/events</code>, <code>/organizer/requests/:id</code></td><td>organizer <span class="new-tag">NEW</span></td><td>Create events/requests, upload guest list, track status</td></tr>
+      <tr><td><code>/approver/requests</code>, <code>/approver/requests/:id</code></td><td>approving_authority <span class="new-tag">NEW</span></td><td>Review and decide</td></tr>
+      <tr><td><code>/kitchen-admin/requests/:id</code></td><td>kitchen_admin <span class="new-tag">NEW</span></td><td>Generate and distribute batches</td></tr>
+      <tr><td><code>/staff/scan</code></td><td>kitchen_staff, admin</td><td>Camera QR scan + manual-lookup fallback — now redeems coupons too (§1.4) <span class="new-tag">CHANGED</span></td></tr>
+      <tr><td><code>/staff/kitchen</code></td><td>kitchen_staff, admin</td><td>Ration/waste entry</td></tr>
+      <tr><td><code>/admin/dashboard</code>, <code>/admin/roster</code>, <code>/admin/menu</code>, <code>/admin/bookings</code>, <code>/admin/users</code>, <code>/admin/imports</code>, <code>/admin/audit</code>, <code>/admin/events</code>, <code>/admin/coupons</code></td><td>admin</td><td>Management &amp; reporting</td></tr>
+    </table></div>
+    <p>A route-guard wrapper component checks session + role before rendering each tree; wrong role → redirect to that role's home, not a 403 page.</p>
+
+    <h3>7.2 Component organization &amp; state</h3>
+    <div class="grid-cards">
+      <div class="card"><b>Feature folders mirror backend modules</b> — <code>src/features/bookings/</code>, <code>src/features/tickets/</code>, etc., each with <code>api.ts</code>, <code>hooks.ts</code>, <code>components/</code>, <code>pages/</code>. A shared <code>src/components/ui/</code> holds generic primitives.</div>
+      <div class="card"><b>TanStack Query for all server state.</b> Almost everything this app shows <i>is</i> server state (bookings, menu, roster…). React Query gives caching, refetch-on-focus, and mutation/loading/error handling without hand-rolling a Redux store for data that was never really client state to begin with.</div>
+      <div class="card"><b>API client + shared Zod schemas.</b> One typed <code>apiClient</code> wrapper parses the <code>{error:{code,message}}</code> envelope into a typed <code>ApiError</code>; every call validates the response shape with Zod — catching backend/frontend contract drift immediately, the same "validate at the boundary" habit applied even between your own two halves of the app.</div>
+      <div class="card"><b>React Hook Form + the same Zod schema</b> backend validation uses, via <code>@hookform/resolvers/zod</code> — one schema, not two copies that quietly diverge.</div>
+    </div>
+
+    <h3>7.3 Error, loading &amp; empty states — and responsiveness</h3>
+    <p>Every data-fetching view implements three explicit states: a loading skeleton, an error state with retry, and an empty state with a clear call to action — never a blank <code>&lt;div&gt;</code>. Mobile-first Tailwind throughout, since booking and showing a QR at the counter are primarily phone interactions; the staff scan view is camera-first on phone/tablet; admin dashboards are desktop-first but must not break at tablet width.</p>
+
+    <h3>7.4 Guest &amp; public route-tree isolation <span class="new-tag">NEW</span></h3>
+    <p>The guest route tree (<code>/guest/*</code>) and the public tree (<code>/</code>, <code>/walkthrough</code>) are separate route-guard roots from <code>/app/*</code> — not nested under it, not sharing its layout shell, not sharing its API client's session handling. A build-time check (or a simple router-config test, §8) asserts no college-only component is ever imported into the guest or public bundle's route tree.</p>
+  </section>
+
+  <section id="s8">
+    <span class="section-num">08</span>
+    <h2>Testing strategy</h2>
+    <div class="tbl-wrap"><table>
+      <tr><th>Layer</th><th>Tool</th><th>Covers</th></tr>
+      <tr><td>Unit</td><td>Vitest</td><td>Pure logic: cutoff-boundary math, pricing, row validators, state-transition guards</td></tr>
+      <tr><td>Integration</td><td>Vitest + Supertest, real Postgres</td><td>HTTP layer, RBAC, concurrency, transactions</td></tr>
+      <tr><td>End-to-end</td><td>Playwright</td><td>Golden paths through the real UI</td></tr>
+    </table></div>
+    <div class="callout">Integration tests run against a real Postgres test database, not an in-memory substitute — the unique constraints, native enums, and the atomic <code>UPDATE … WHERE</code> redemption pattern are genuinely Postgres behaviors a mock won't faithfully reproduce.</div>
+
+    <h3>Critical scenarios → how each is actually tested</h3>
+    <div class="tbl-wrap"><table>
+      <tr><th>Scenario</th><th>Test &amp; assertion</th></tr>
+      <tr><td>Concurrent booking attempts</td><td><code>Promise.all</code> of two parallel <code>POST /api/bookings</code> for the same user+slot; assert exactly one success and exactly one <code>Booking</code> row in the DB</td></tr>
+      <tr><td>Duplicate payment submissions</td><td>Same mechanism — payment is inside the same transaction as the booking, so the booking test covers it; separately test idempotent re-submit on admin override</td></tr>
+      <tr><td>Double QR redemption</td><td><code>Promise.all</code> of two parallel redeem calls on one ticket; assert one <code>200</code>, one <code>409</code>, and exactly one <code>Attendance</code> row — checked by querying the DB directly, not just trusting the HTTP responses</td></tr>
+      <tr><td>Unauthorized access</td><td>Every protected route hit with no session (expect 401) and with a wrong role (expect 403)</td></tr>
+      <tr><td>College data isolation</td><td>Seed two colleges with deliberately similar-looking data; assert College A's admin views never contain a single College B row, across bookings/roster/menu/audit</td></tr>
+      <tr><td>Cutoff enforcement</td><td>Pure unit tests on the cutoff function at exact boundary seconds (e.g. 18:59:59 vs. 19:00:00 the day before, for breakfast) — fast, exhaustive, no DB needed</td></tr>
+      <tr><td>Rescheduling</td><td>Pre-cutoff reschedule succeeds + writes <code>BookingHistory</code>; post-cutoff rejected; reschedule into an already-held slot rejected cleanly via the unique constraint</td></tr>
+      <tr><td>Excel import validation</td><td>Row-validator unit tests (good row, missing field, duplicate email in-file, domain mismatch) + an integration test on commit asserting partial acceptance is reported correctly and the DB ends consistent either way</td></tr>
+      <tr><td>Cancellation &amp; admin overrides</td><td>Override on a <code>REDEEMED</code> ticket requires a reason, writes <code>AuditLog</code>, and transitions state correctly; a non-admin attempting it gets 403</td></tr>
+    </table></div>
+    <div class="callout decision"><b>Cross-college rejection returns 404, not 403.</b> If a student from College A requests a booking ID belonging to College B, the response is "not found," not "forbidden." Returning 403 would confirm the ID exists at all — a small information leak. 404 reveals nothing either way.</div>
+
+    <h3>Guest &amp; coupon-workflow scenarios <span class="new-tag">NEW</span></h3>
+    <div class="tbl-wrap"><table>
+      <tr><th>Scenario</th><th>Test &amp; assertion</th></tr>
+      <tr><td>Guest with a personal Gmail account</td><td>Sign in via flow B with a non-college Gmail that matches an active invitation → guest session created, scoped to that invitation only</td></tr>
+      <tr><td>Uninvited Gmail denied</td><td>Flow B with a verified Google account that matches no <code>GuestInvitation</code> → 403, no session of any kind created</td></tr>
+      <tr><td>Expired invitation denied</td><td><code>expiresAt</code> in the past → 403 even with a correct email/sub match</td></tr>
+      <tr><td>Revoked invitation denied</td><td><code>revokedAt</code> set → 403, and the attempt is written to <code>AuditLog</code></td></tr>
+      <tr><td>Guest can't access another guest's coupon</td><td>Guest A's session token used against Guest B's <code>couponId</code> → 404</td></tr>
+      <tr><td>Guest can't reach student APIs</td><td>Every <code>/app/*</code> and <code>/api/bookings*</code> route hit with a valid guest cookie → 401/403, never 200</td></tr>
+      <tr><td>College-domain student via guest entry point</td><td>A known roster-active student email signs in through flow B (not A) → session is guest-typed, zero student access, confirming §6.5's structural guarantee</td></tr>
+      <tr><td>Guest can't create a booking</td><td><code>POST /api/bookings</code> with a guest cookie → 401</td></tr>
+      <tr><td>Organizer can't approve own request</td><td>Granting both roles is already blocked at grant-time (§2.3); additionally, directly call the decision endpoint as the request's own creator (simulating a bug in the grant check) → still rejected by the endpoint's own independent check</td></tr>
+      <tr><td>Kitchen admin can't generate beyond approval</td><td>Request a batch that would push <code>generatedQuantity</code> over <code>approvedQuantity</code> → 409, counter unchanged</td></tr>
+      <tr><td>Concurrent coupon batch generation</td><td><code>Promise.all</code> of several parallel batch requests whose quantities sum to just over the approved cap → exactly the ones that fit succeed, <code>generatedQuantity</code> never exceeds <code>approvedQuantity</code>, verified by querying the DB directly (§4.5)</td></tr>
+      <tr><td>Duplicate guest claims</td><td>Two concurrent coupon-assignment attempts for the same invitation → exactly one <code>ComplimentaryCoupon</code> row ends up with that <code>guestInvitationId</code> (unique constraint, §2.10)</td></tr>
+      <tr><td>Coupon reassignment audit</td><td>Reassigning a coupon writes exactly one <code>AuditLog</code> row with old and new invitation ids</td></tr>
+      <tr><td>Double coupon redemption</td><td>Same atomic-<code>UPDATE</code> concurrency test as paid tickets, run against <code>/api/scan/redeem</code> with <code>type:'C'</code></td></tr>
+      <tr><td>Public walkthrough needs no login</td><td>Load <code>/</code> and <code>/walkthrough</code> with zero cookies set; assert the network log contains no call to any <code>/api/*</code> route</td></tr>
+    </table></div>
+    <p><b>Database invariants, tested directly</b> (not just through the API): <code>generatedQuantity &lt;= approvedQuantity</code> never violated after any sequence of concurrent batch calls; <code>COUNT(ComplimentaryCoupon WHERE status='REDEEMED') === COUNT(CouponRedemption)</code> for every request; no two non-revoked <code>GuestInvitation</code> rows share <code>(eventCouponRequestId, email)</code>; no <code>UserRole</code> row pairs <code>ORGANIZER</code> and <code>APPROVING_AUTHORITY</code> on the same <code>userId</code>.</p>
+
+    <h3>Concurrency, idempotency, session &amp; recovery scenarios <span class="new-tag">NEW, REV 2.1</span></h3>
+    <div class="tbl-wrap"><table>
+      <tr><th>Scenario</th><th>Test &amp; assertion</th></tr>
+      <tr><td>Concurrent role-grant race</td><td>Two concurrent transactions each try to grant one of the mutually-exclusive roles (<code>ORGANIZER</code>, <code>APPROVING_AUTHORITY</code>) to the <i>same</i> user; assert exactly one <code>UserRole</code> insert succeeds and the other is rejected — verified by querying <code>UserRole</code> directly, not by trusting both HTTP responses (§2.3)</td></tr>
+      <tr><td>Concurrent duplicate distribution</td><td><code>Promise.all</code> of two (or more) parallel <code>PATCH /batches/:id/distribute</code> calls on the same batch; assert exactly one actually incremented <code>distributedQuantity</code> and wrote the four associated updates once, and every other call returned the same already-distributed result rather than erroring or double-counting (§4.6)</td></tr>
+      <tr><td>Concurrent approval-modification vs. generation</td><td>Interleave a <code>MODIFIED</code> decision that lowers <code>approvedQuantity</code> with a concurrent batch-generation call against the same request, in both orderings; assert <code>generatedQuantity &lt;= approvedQuantity</code> holds after every interleaving and that a modification which would violate it is rejected with no <code>ApprovalRecord</code> written (§4.7)</td></tr>
+      <tr><td>Session rotation on login</td><td>Capture the pre-login session cookie value (if any), complete OAuth, assert the post-login cookie value differs and the pre-login session id no longer resolves to anything</td></tr>
+      <tr><td>Logout invalidation</td><td>Log out, then replay the same (now-stale) cookie against any protected route; assert 401, and assert the <code>Session</code> row is gone/revoked, not just that the client cleared its cookie</td></tr>
+      <tr><td>Revocation on deactivation/role change</td><td>While a user has an active session, deactivate them (or revoke their <code>GuestInvitation</code>, or change their roles); replay their existing cookie; assert the <i>already-issued</i> session is now rejected, not just that a fresh login would be</td></tr>
+      <tr><td>CSRF rejection</td><td>A state-changing request carrying a valid session cookie but a missing/wrong CSRF token is rejected; the same request with the correct token succeeds</td></tr>
+      <tr><td>Guest-list import reuses the roster validator</td><td>Row-validator unit tests for <code>EVENT_GUEST_LIST</code> (good row, missing email, duplicate within file) assert the identical validation function/error shape as the roster-import tests, not a parallel implementation (§2.8)</td></tr>
+      <tr><td>Payment-attempt history survives a retry</td><td>Simulate a <code>FAILED</code> attempt followed by a <code>SUCCEEDED</code> retry on the same booking; assert both <code>PaymentAttempt</code> rows still exist afterward and <code>Payment</code> reflects only the successful one (§2.6)</td></tr>
+      <tr><td>Composite FK rejects a cross-college pointer</td><td>Attempt to construct a <code>Booking</code> whose <code>collegeId</code> doesn't match its <code>mealScheduleId</code>'s actual college; assert the database itself raises a foreign-key violation, not an application-level check catching it first (§2.9)</td></tr>
+      <tr><td>Backup restore drill</td><td>Not an automated test — an operational, periodic procedure: restore the latest backup to a scratch instance and verify it boots and known rows read back correctly (§9.2)</td></tr>
+    </table></div>
+  </section>
+
+  <section id="s9">
+    <span class="section-num">09</span>
+    <h2>Deployment &amp; operations</h2>
+
+    <pre class="mermaid">
+graph LR
+  FE["React build"] -->|static hosting| CDN["Static / CDN host"]
+  BE["Node/Express process"] -->|managed| PaaS["PaaS host"]
+  PG[("Postgres")] -->|managed| DBH["DB provider"]
+  CDN -.-> BE
+  BE --> PG
+  BE --> G["Google OAuth"]
+  BE -.-> ERR["Error tracking (optional)"]
+    </pre>
+
+    <h3>9.1 Config, secrets, logging</h3>
+    <div class="tbl-wrap"><table>
+      <tr><th>Variable</th><th>Purpose</th></tr>
+      <tr><td><code>DATABASE_URL</code></td><td>Postgres connection string</td></tr>
+      <tr><td><code>SESSION_SECRET</code></td><td>Signs the session cookie</td></tr>
+      <tr><td><code>GOOGLE_CLIENT_ID</code> / <code>GOOGLE_CLIENT_SECRET</code> / <code>GOOGLE_CALLBACK_URL</code></td><td>OAuth app credentials</td></tr>
+      <tr><td><code>FRONTEND_URL</code></td><td>CORS allow-list + post-login redirect target</td></tr>
+      <tr><td><code>NODE_ENV</code>, <code>PORT</code></td><td>Standard runtime config</td></tr>
+    </table></div>
+    <p>Allowed college domains live in the <code>CollegeDomain</code> table (admin-editable), not an env var — only the pilot college's first domain needs seeding at setup. Secrets never commit to the repo; set directly in the hosting platform's secret manager. Logs are structured JSON (e.g. via <code>pino</code>) with a request id for correlation; the raw QR token and session cookie value are never logged.</p>
+
+    <h3>9.2 Backups, migrations, rollback</h3>
+    <div class="grid-cards">
+      <div class="card"><b>Migrations:</b> Prisma Migrate, committed and reviewed like code. <code>prisma migrate deploy</code> in production — never <code>prisma db push</code>, which skips writing a migration file and so leaves nothing to roll back to.</div>
+      <div class="card"><b>Backups <span class="new-tag">REV 2.1, EXPANDED</span>:</b> daily <i>encrypted</i> backups (at rest, via the provider's default encryption or an encrypted bucket if self-hosting), retained on a <b>7-daily + 4-weekly</b> schedule — seven most recent daily snapshots plus one snapshot per week for the four weeks before that, so a problem noticed a few weeks late is still recoverable. Backup access is restricted to whoever holds deploy/ops credentials, not the general admin role — a backup is a copy of every student's and guest's data, and broad access to it is itself a privacy exposure. Rely on the managed Postgres provider's automated daily backups where that tier includes this retention shape; if ever self-hosting Postgres instead, a daily <code>pg_dump</code> (encrypted at the destination) to restricted-access object storage, with lifecycle rules enforcing the same 7-daily/4-weekly retention, is the floor, not the ideal.</div>
+      <div class="card"><b>Restore testing <span class="new-tag">NEW, REV 2.1</span>:</b> a periodic (e.g. monthly) restore drill — take the latest backup, restore it to a throwaway instance, and verify it actually boots and a few known rows read back correctly. <b>A backup job reporting success is not proof the backup is restorable</b> — corruption, a schema/version mismatch, or a silently-truncated upload are all failure modes that only a real restore attempt catches. The documented recovery procedure (below) is exercised by this same drill, not written once and left untested.</div>
+      <div class="card"><b>Documented recovery procedure <span class="new-tag">NEW, REV 2.1</span>:</b> a short runbook — which backup to pick, how to restore it to a separate instance, what to verify before cutover (§9.2's existing "Recovery" card), and who is authorized to perform a production cutover — kept outside the database it describes (e.g. in the repo), so it's readable even when the database it's about is the thing that's down.</div>
+      <div class="card"><b>Rollback:</b> prefer a new forward migration that corrects a mistake over editing a past one — the same reasoning as never rewriting pushed git history. A bad deploy rolls back by redeploying the previous build.</div>
+      <div class="card"><b>Recovery:</b> restore a backup to a separate instance first and verify it, then cut over — never restore directly onto the live database.</div>
+    </div>
+
+    <h3>9.3 Monitoring — architecturally needed vs. nice-to-have</h3>
+    <div class="tbl-wrap"><table>
+      <tr><th>Needed for the pilot</th><th>Nice, costs money/effort</th></tr>
+      <tr><td>Basic uptime check</td><td>Full observability stack (Datadog, Prometheus+Grafana) — overkill at 500 users</td></tr>
+      <tr><td>Error visibility (even just platform logs)</td><td>Dedicated error tracker (Sentry free tier is a cheap step up, not a requirement)</td></tr>
+      <tr><td>DB automated backups</td><td>Point-in-time recovery, multi-region replicas</td></tr>
+    </table></div>
+
+    <h3>9.4 A cost-sensitive pilot stack (a starting point, not a requirement)</h3>
+    <p>Frontend on a free static host (Vercel/Netlify/Cloudflare Pages); backend on a cheap/free PaaS tier (Railway/Render) — note free tiers can cold-start, which affects responsiveness but not correctness, since cutoffs are evaluated per-request rather than by a background job; Postgres on a free-tier managed provider (Neon/Supabase), watching Prisma's connection count against that tier's limit and using the provider's built-in connection pooler if needed.</p>
+
+    <h3>9.5 Public video hosting &amp; the no-new-infra rule <span class="new-tag">NEW</span></h3>
+    <p>The walkthrough video's URL is itself an environment-configurable value (e.g. <code>WALKTHROUGH_VIDEO_URL</code>), read by the public landing page component at build or request time — updating the video is an env-var/asset change, never a deploy that touches <code>auth</code>, <code>bookings</code>, or any other module, exactly as <code>CLAUDE.md</code> §9.4 requires. No background job is introduced anywhere in this revision — invitation expiry and coupon "expired" accounting are both computed at request/query time (§2.11, §6.6), consistent with the existing "no infra beyond what's proposed explicitly" stance (§1.1 of the original tech-stack note).</p>
+  </section>
+
+  <section id="s10">
+    <span class="section-num">10</span>
+    <h2>Implementation roadmap</h2>
+    <p>Each milestone is independently testable and, except where noted, depends only on the milestones listed as prerequisites — not on finishing everything before it in the list.</p>
+
+    <div class="tbl-wrap"><table>
+      <tr><th>#</th><th>Milestone</th><th>Modules / files</th><th>Prereqs</th><th>Tests required</th><th>Definition of done</th></tr>
+      <tr><td>M0</td><td>Project scaffolding</td><td>Vite+React+TS, Express+TS, Prisma init, lint/CI</td><td>This document approved</td><td>Smoke test: app boots</td><td><code>npm run dev</code> runs both apps; CI lints + typechecks on push</td></tr>
+      <tr><td>M1</td><td>College/roster + auth core</td><td><code>colleges</code>, <code>users</code>, <code>auth</code></td><td>M0</td><td>Callback success/failure paths; roster-check unit tests</td><td>Seeded student logs in; unseeded email rejected; seeded admin hits an admin-only route, a student 403s on it</td></tr>
+      <tr><td>M2</td><td>Menu &amp; pricing config</td><td><code>menu</code></td><td>M1 (admin role)</td><td>Cutoff boundary unit tests; admin-CRUD RBAC tests</td><td>Admin sets/edits price+cutoff; student endpoint reports bookable vs. cutoff-passed correctly</td></tr>
+      <tr><td>M3</td><td>Booking + simulated payment + ticket (core transaction)</td><td><code>bookings</code>, <code>payments</code>, <code>tickets</code></td><td>M2</td><td>Parallel-booking concurrency test; cutoff rejection; happy-path consistency check</td><td>Student books an available, not-yet-cutoff meal and gets a QR; a double-booked or past-cutoff attempt is cleanly rejected</td></tr>
+      <tr><td>M4</td><td>Reschedule, cancel, admin overrides</td><td><code>bookings</code> (history), <code>audit</code></td><td>M3</td><td>Reschedule/cancel success+failure; override RBAC + audit assertion</td><td>Self-service works pre-cutoff, blocked post-cutoff; override works and is audited</td></tr>
+      <tr><td>M5</td><td>QR scanning &amp; redemption</td><td><code>tickets</code> (attendance)</td><td>M3</td><td>Double-redemption concurrency test; same-day/cross-college rejection; manual-override audit</td><td>One valid scan succeeds; a second scan of the same ticket is cleanly rejected with no duplicate attendance row</td></tr>
+      <tr><td>M6</td><td>Kitchen ration &amp; waste</td><td><code>kitchen</code></td><td>M1 (can run alongside M3–M5)</td><td>CRUD + RBAC tests</td><td>Staff logs ration/waste; admin views them filtered by date</td></tr>
+      <tr><td>M7</td><td>Feedback &amp; dashboards</td><td><code>feedback</code>, <code>reporting</code></td><td>M3, M6; most meaningful after M5</td><td>One-feedback-per-booking constraint; reporting query correctness against known seeded data</td><td>Dashboard shows real figures for a date range, with zero invented numbers</td></tr>
+      <tr><td>M8</td><td>Excel import/export + audit viewer</td><td><code>imports</code>, <code>audit</code></td><td>M1, M6/M7 (data to export)</td><td>Row-validator unit tests; partial-failure commit test; audit-write assertions</td><td>Admin previews, commits a roster import, and sees it reflected in both roster and audit log; bookings/waste export to Excel</td></tr>
+      <tr><td>M9</td><td>E2E &amp; staging deployment <span class="new-tag">REV 2.1, RENAMED</span></td><td>—</td><td>M1–M8</td><td>Playwright golden paths; responsive/accessibility pass</td><td>Deployed to a staging/pilot-validation environment with the real college's roster imported. <span class="new-tag">REV 2.1</span> This is a staging milestone, not production go-live — see §10.2.</td></tr>
+    </table></div>
+    <p class="lede">Frontend work for each backend module travels with its milestone — it's not a separate late phase.</p>
+    <div class="callout risk"><b><span class="new-tag">REV 2.1</span> M9 was labeled "go-live" in Rev. 2 — that was wrong.</b> M9 only covers the core booking/ticket/kitchen/feedback/import flows (M1–M8); it says nothing about the coupon and guest workflows, which <code>CLAUDE.md</code> §8/§9 require as V1, not optional. Production go-live is redefined in §10.2 below to depend on M10–M15 as well.</div>
+
+    <h3>10.1 Coupon, guest &amp; public-page milestones <span class="new-tag">NEW</span></h3>
+    <p>These are <b>V1 requirements, not a "later" phase</b> — they're numbered after M9 only because that's where they fit in the table. Several can run in parallel with M3–M9 rather than strictly after them.</p>
+    <div class="tbl-wrap"><table>
+      <tr><th>#</th><th>Milestone</th><th>Prereqs</th><th>Tests required</th><th>Definition of done</th></tr>
+      <tr><td>M10</td><td>Role model rewrite — <code>UserRole</code> table, grant/revoke endpoints, mutual-exclusion check</td><td>M1</td><td>Grant/revoke RBAC tests; organizer+approver mutual-exclusion test</td><td>Admin can grant/revoke any role via <code>UserRole</code>; granting the excluded pair is rejected</td></tr>
+      <tr><td>M11</td><td>Event &amp; request management — <code>Event</code>, <code>EventCouponRequest</code>, <code>ApprovalRecord</code>, organizer/approver endpoints, guest-list upload (reusing the import validator)</td><td>M10, M2 (mealType)</td><td>Request CRUD + RBAC; approval-decision tests incl. self-approval rejection</td><td>Organizer creates a request with a guest list; approver approves/rejects/modifies it with a recorded decision</td></tr>
+      <tr><td>M12</td><td>Coupon batch generation &amp; distribution — <code>CouponBatch</code>, <code>ComplimentaryCoupon</code>, the atomic conditional-increment</td><td>M11</td><td>The concurrent-generation test (§8); auto-assignment-to-guest tests</td><td>Kitchen admin generates and distributes a batch; two concurrent over-cap attempts never together exceed the approval</td></tr>
+      <tr><td>M13</td><td>Guest authentication &amp; claim — guest OAuth entry point, <code>guestAuthGuard</code>, <code>sub</code> binding, claim-on-view</td><td>M12, M1 (OAuth plumbing reused)</td><td>All of §6.6's edge-case tests; the college-student-via-guest-entry test</td><td>A guest claims their coupon via Google sign-in with zero student access, even with a college-domain email</td></tr>
+      <tr><td>M14</td><td>Coupon redemption — the <code>scan</code> dispatcher, <code>CouponRedemption</code></td><td>M5 (existing ticket redemption, pattern reused), M13</td><td>Double-redemption concurrency test; the redeemed-count reconciliation invariant</td><td>Staff redeem a coupon once through the same scan UI used for tickets; a second scan is cleanly rejected</td></tr>
+      <tr><td>M15</td><td>Complimentary accounting &amp; reporting — the funnel dashboard, live-computed counts</td><td>M14, M7 (existing reporting)</td><td>Reconciliation-invariant tests (§8)</td><td>Admin dashboard shows the full requested→expired funnel by event/club/approver, with zero figures that aren't a direct query</td></tr>
+      <tr><td>M16</td><td>Public landing page &amp; walkthrough</td><td>none — independent of every other milestone</td><td>Zero-authenticated-call test (§8)</td><td>"Explore BiteCampus" CTA plays the hosted video; page makes no API call</td></tr>
+    </table></div>
+
+    <h3>10.2 Production go-live <span class="new-tag">NEW, REV 2.1</span></h3>
+    <div class="tbl-wrap"><table>
+      <tr><th>#</th><th>Milestone</th><th>Prereqs</th><th>Tests required</th><th>Definition of done</th></tr>
+      <tr><td>M17</td><td>Production go-live</td><td><b>M1–M8 and M10–M15</b> (not M16 — see below)</td><td>Every test listed under M1–M8 and M10–M15 passing; the real college's roster <i>and</i> at least one real event's full coupon workflow exercised end-to-end in the target environment</td><td>Students can book/pay/redeem, <i>and</i> an organizer can request, get approved, generate, distribute, and have a guest claim and redeem a coupon — all in production, before this is called "live"</td></tr>
+    </table></div>
+    <p><b>M16 is independently deployable</b> and is deliberately excluded from M17's prerequisites — the public landing page can ship (or be updated) before, during, or after go-live, on its own schedule, precisely because §9.5 designed it to touch nothing M17 depends on. Nothing in this roadmap describes production go-live as achieved by M9 alone; M9 is staging/baseline validation for the core flows only (§10.1 note above).</p>
+  </section>
+
+  <section id="s11">
+    <span class="section-num">11</span>
+    <h2>Decisions, risks &amp; open questions</h2>
+
+    <h3>11.1 Architecture decisions, recapped</h3>
+    <div class="tbl-wrap"><table>
+      <tr><th>Decision</th><th>Reasoning</th><th>§</th></tr>
+      <tr><td>Modular monolith, one Postgres DB</td><td>No scale pressure at 500 users; real transactions for correctness-critical flows</td><td>1.1</td></tr>
+      <tr><td><code>collegeId</code> on every tenant table</td><td>Multi-college becomes a data dimension, not new infrastructure</td><td>2.9, 6.4</td></tr>
+      <tr><td>Money as integer paise</td><td>Avoids floating-point rounding bugs on currency</td><td>2.9</td></tr>
+      <tr><td>Price snapshot per booking</td><td>A later price change shouldn't silently alter an already-confirmed booking</td><td>2.5, 2.9</td></tr>
+      <tr><td>Token hash, not raw token, stored</td><td>Same reasoning as never storing plaintext passwords</td><td>4.1</td></tr>
+      <tr><td>Atomic conditional <code>UPDATE</code> for redemption</td><td>Closes the TOCTOU race a read-then-write pattern leaves open</td><td>4.3</td></tr>
+      <tr><td>One transaction for booking+payment+ticket</td><td>No external gateway in V1 means no reason not to make it atomic</td><td>3.4</td></tr>
+      <tr><td>404, not 403, across tenant/ownership boundaries</td><td>Avoids confirming a resource exists to someone not allowed to see it</td><td>8</td></tr>
+      <tr><td><b><code>UserRole</code> join table, not a single enum column</b> <span class="new-tag">NEW</span></td><td>A single column can't represent one person holding two roles at once, which <code>CLAUDE.md</code> explicitly allows for most pairs</td><td>2.3</td></tr>
+      <tr><td><b>Organizer/Approver mutual exclusion enforced at grant-time <i>and</i> decision-time</b> <span class="new-tag">NEW</span></td><td>No-self-approval as a structural guarantee, not a single checkable condition</td><td>2.3, 6.8</td></tr>
+      <tr><td><b>Six of eight coupon counts computed live, never stored</b> <span class="new-tag">NEW</span></td><td>Can't drift out of sync with reality if they're never written independently</td><td>2.11</td></tr>
+      <tr><td><b>Atomic conditional <code>UPDATE</code> on a counter column for generation</b> <span class="new-tag">NEW</span></td><td>Closes the same read-then-write race a plain <code>CHECK</code> constraint can't by itself</td><td>2.11, 4.5</td></tr>
+      <tr><td><b>Guest identity bound to <code>GuestInvitation</code>, never a <code>User</code> row</b> <span class="new-tag">NEW</span></td><td>Makes "never gains student privileges" structural rather than a remembered rule</td><td>6.5</td></tr>
+      <tr><td><b>Two cookies, two middlewares, two request-object types</b> <span class="new-tag">NEW</span></td><td>A guest session can't be accidentally accepted by college-only code, even by mistake</td><td>6.7</td></tr>
+      <tr><td><b>Unified <code>scan</code> endpoint, still-separate data</b> <span class="new-tag">NEW</span></td><td>One staff UI, zero data mixing — the separation <code>CLAUDE.md</code> §8.6 requires is about accounting, not the camera screen</td><td>1.4</td></tr>
+      <tr><td><b>Public page: no backend module, config-driven video URL</b> <span class="new-tag">NEW</span></td><td>A video update should never be a reason to touch <code>auth</code> or <code>bookings</code></td><td>9.5</td></tr>
+      <tr><td><b>Role grants locked with <code>SELECT … FOR UPDATE</code></b> <span class="new-tag">REV 2.1</span></td><td>A pre-check or unique constraint alone can't prevent two different roles being granted to one user concurrently</td><td>2.3</td></tr>
+      <tr><td><b>Distribution as a conditional, exactly-once transition</b> <span class="new-tag">REV 2.1</span></td><td>A plain transaction isn't idempotent against a retried or duplicated distribute call</td><td>4.6</td></tr>
+      <tr><td><b>Approval-quantity changes locked against the same row generation locks</b> <span class="new-tag">REV 2.1</span></td><td>Ordinary Postgres row locking already serializes the two operations once both use conditional <code>UPDATE</code>s</td><td>4.7</td></tr>
+      <tr><td><b>Real server-side <code>Session</code> table, not a stateless token</b> <span class="new-tag">REV 2.1</span></td><td>Explicit revocation (logout, deactivation, role change) needs something that can be deleted — a signed JWT alone can't be</td><td>6.7</td></tr>
+      <tr><td><b>Composite FKs pairing <code>collegeId</code> with each child FK</b> <span class="new-tag">REV 2.1</span></td><td>Query-time <code>collegeId</code> filtering stops cross-college reads, not cross-college writes; a composite FK makes the database itself refuse the write</td><td>2.9</td></tr>
+      <tr><td><b><code>PaymentAttempt</code> as an append-only log beside <code>Payment</code></b> <span class="new-tag">REV 2.1</span></td><td>A unique-per-booking <code>Payment</code> row can't hold a failed attempt and a successful retry at the same time</td><td>2.6</td></tr>
+    </table></div>
+
+    <h3>11.2 Risks &amp; bottlenecks</h3>
+    <div class="grid-cards">
+      <div class="card"><b>Single Postgres instance is a single point of failure.</b> Acceptable at 500 users with a managed provider's backups; a real HA tier is a later, budget-gated upgrade, not a V1 flaw.</div>
+      <div class="card"><b>Cutoff correctness lives entirely in one piece of timezone-handling code.</b> A bug there (server-local time instead of explicit Asia/Kolkata conversion) could silently let late bookings through or block valid ones — the single highest-value area for thorough boundary testing (§8).</div>
+      <div class="card"><b>The roster is a critical dependency, not just data.</b> A stale or wrong upload can lock out real students or let former ones in. The dry-run preview and audit trail mitigate the technical risk; who actually maintains the roster, and how often, is a process risk this design can't fix by itself.</div>
+      <div class="card"><b>Redemption is the one place true concurrent writes happen in production, not just in tests</b> — a counter rush with multiple staff scanning near-simultaneously. The atomic <code>UPDATE</code> pattern handles it correctly; at 500-user scale, Postgres serializing those writes is a non-issue, just worth understanding why.</div>
+      <div class="card"><b>A future real payment gateway breaks the "one atomic transaction" assumption.</b> Flagged now so it's a planned change later, not a surprise (§3.4).</div>
+      <div class="card new-tag" style="display:block;"><b>The guest-list Excel upload is as high-stakes as the roster upload</b> it reuses the validator from — a bad upload means real people can't get in, or the wrong people can. Same dry-run/preview discipline should apply.</div>
+      <div class="card"><b>Google <code>sub</code> binding doesn't stop one person using two different Gmail accounts to double-claim</b> under two invitations if both happen to be on the guest list — basic hygiene, not an anti-abuse system. Acceptable for a pilot; flagged so it isn't mistaken for bulletproof.</div>
+      <div class="card"><b>The "no background job" stance for expiry (§6.6, §9.5) means every expiry/expired-accounting check is request-time math.</b> Correct and simple at 500-user/pilot-event scale; would need revisiting only if event volume grew enough that live computation became a real query-cost concern — not a V1 problem.</div>
+    </div>
+
+    <h3>11.3 Questions that need a college-level decision, not an engineering one</h3>
+    <ol>
+      <li>What exactly makes a roster entry "inactive" — an automatic date (e.g. semester end) or only explicit admin action? Decides whether roster expiry needs its own automation or stays a manual task.</li>
+      <li>Is there a per-meal capacity cap in V1 (kitchen can only prepare N servings), or is booking uncapped for the pilot? Decides whether <code>MealSchedule.capacity</code> is enforced at booking time — another concurrency-shaped check, same family as redemption — or stays informational.</li>
+      <li>If admin changes a price, does it apply only to new bookings, or retroactively to already-confirmed future ones? This design assumes <i>new bookings only</i> (§2.9) — confirm that's the intended rule.</li>
+      <li>Who's authorized to perform a no-QR manual redemption — kitchen_staff directly, or must it route through admin? §4.4 proposes kitchen_staff-with-mandatory-reason as the operationally realistic choice.</li>
+      <li>What happens to a whole meal's bookings if the kitchen can't serve it that day (ration shortfall, closure)? Needs an explicit "cancel every booking for meal X on date Y" bulk action — worth deciding whether that's in V1 scope or an accepted gap for the pilot.</li>
+      <li>Does any college in the pilot or near-term future actually need more than one valid email domain? The schema already supports it (§2.2) — confirming it isn't over-engineering a want nobody has yet.</li>
+    </ol>
+
+    <h3>11.4 Ambiguities resolved while designing</h3>
+    <div class="grid-cards">
+      <div class="card"><b>"Bookings and booking items" (plural)</b> for a V1 where a booking is really just one meal: resolved with a lightweight <code>BookingItem</code>/<code>MenuItem</code> layer that supports future add-ons or multi-dish bookings without a migration, while V1 behavior stays one item per booking and price stays per meal type, not per item.</div>
+      <div class="card"><b>"Configurable college email domain<i>s</i>"</b> alongside a single-college pilot: resolved by making domains a child table of college (many domains → one college), which satisfies the plural without building any actual multi-tenant complexity that isn't needed yet.</div>
+    </div>
+
+    <h3>11.5 Unresolved decisions — flagged for explicit sign-off <span class="new-tag">UPDATED, REV 2.1</span></h3>
+    <ol>
+      <li><b>Coupon-to-guest assignment order.</b> This revision auto-assigns coupons to guests in upload order as each batch generates. Is first-uploaded-first-assigned the right policy, or should the organizer be able to choose which guests get coupons first if a request is only partially approved?</li>
+      <li><b>Does distribution trigger a guest notification (email) in V1?</b> The schema records <i>that</i> a batch was distributed; it doesn't yet say anything about telling guests their coupon exists. Worth deciding before M13, since it changes what "claimed" even means operationally (a guest can't claim what they don't know exists). <span class="new-tag">REV 2.1</span> Still open — not decided in this revision either.</li>
+      <li><b>What happens to an already-<code>CLAIMED</code> coupon when its invitation is later revoked?</b> Current design: revocation blocks <i>future</i> sign-ins but doesn't retroactively void a coupon the guest already has open. Is that the intended policy, or should revocation immediately void the coupon too? <span class="new-tag">REV 2.1</span> Still open — this revision deliberately did not invent an answer, per the review's instruction.</li>
+      <li><b><span class="new-tag">NEW, REV 2.1</span> Can a coupon be redeemed from <code>DISTRIBUTED</code>, or only from <code>CLAIMED</code>?</b> See the callout in §2.10 — this changes one word in the redemption <code>WHERE</code> clause (§4.3) but is a real policy choice about whether a guest must have opened the app at least once before the coupon is usable at the door.</li>
+      <li><b><span class="new-tag">NEW, REV 2.1</span> Is "expired" basis correct as <code>Event.eventDate</code>?</b> See §2.11's Expired row — fine for a single-sitting event, but worth confirming before a multi-day event ever needs this accounting.</li>
+    </ol>
+
+    <h3>11.6 Consistency check</h3>
+    <p>This document was checked section-by-section against the current (19-section) <code>CLAUDE.md</code>: the ER diagram (§2.1), module table (§1.3), API table (§5), authorization matrix (§6.8), frontend routes (§7.1), test plan (§8), and roadmap (§10) all name the same seven coupon entities, the same six college roles via <code>UserRole</code>, the same two authentication flows, and the same public-page boundary. Nothing from Rev. 1's booking/payment/ticket design was weakened or contradicted — every table, endpoint, and decision from Rev. 1 is preserved verbatim, with new material cross-linked into it rather than sitting beside it unconnected. <span class="new-tag">REV 2.1</span> After this revision's corrections, every cross-reference touched by a renumbered or newly inserted subsection (§4.6, §4.7, §10.2) was re-checked against its callers in §2, §3, §5, §6, §8, §10, and §11; the SQL in §4.5–§4.7 was re-read against the <code>@map</code>/<code>@@map</code> convention stated at the top of §4.5 to confirm the identifiers it uses are the ones the schema would actually produce.</p>
+
+    <h3>11.7 Rev. 2.1 change summary <span class="new-tag">NEW, REV 2.1</span></h3>
+    <p>Twelve corrections from an independent technical review of Rev. 2, all additive or corrective — no section, diagram, table, endpoint, or decision from Rev. 2 was removed or redesigned.</p>
+    <div class="tbl-wrap"><table>
+      <tr><th>#</th><th>Correction</th><th>Where</th></tr>
+      <tr><td>1</td><td>Role-grant mutual exclusion now uses <code>SELECT … FOR UPDATE</code> row locking, not a bare pre-check — closes the TOCTOU race a unique constraint alone can't</td><td>§2.3</td></tr>
+      <tr><td>2</td><td>Coupon distribution is now a conditional, exactly-once <code>UPDATE</code> (<code>distributedAt IS NULL</code>), not a plain transaction — makes a retry/duplicate call a no-op instead of a double count</td><td>§4.6 (new)</td></tr>
+      <tr><td>3</td><td>Replaced the Prisma example that implied a cross-column filter was expressible in an ordinary <code>where</code>; the conditional generation <code>UPDATE</code> is now shown as parameterized raw SQL inside the existing <code>$transaction</code>, with the <code>@map</code>/<code>@@map</code> naming convention stated explicitly</td><td>§4.5</td></tr>
+      <tr><td>4</td><td>Approval-quantity modification now locks the request row via the same conditional-<code>UPDATE</code> technique and refuses to lower <code>approvedQuantity</code> below <code>generatedQuantity</code>; coordinates with concurrent generation through ordinary Postgres row locking</td><td>§4.7 (new)</td></tr>
+      <tr><td>5</td><td>Session design expanded: a real server-side <code>Session</code> table, cookie attributes, lifetimes, login-time rotation, logout invalidation, revocation on deactivation/role change, and CSRF tokens — the two-cookie/two-middleware separation is unchanged</td><td>§6.7</td></tr>
+      <tr><td>6</td><td>Added <code>EVENT_GUEST_LIST</code> to the existing <code>ImportJob</code> type enum, reusing the same import engine — no second validator</td><td>§2.8, §5</td></tr>
+      <tr><td>7</td><td>Composite foreign keys (<code>collegeId</code> paired with the child FK) proposed for the booking and coupon tables, as a database-enforced second line of defense beyond query-time <code>collegeId</code> filtering; <code>CouponBatch.collegeId</code> added (it was missing)</td><td>§2.9, §2.10</td></tr>
+      <tr><td>8</td><td>New <code>PaymentAttempt</code> log preserves every simulated attempt; <code>Payment</code> now represents only the current authoritative state</td><td>§2.6, §3.4</td></tr>
+      <tr><td>9</td><td>Backups expanded to encrypted, 7-daily + 4-weekly retention, restricted access, a documented recovery runbook, and a periodic restore drill — explicit that a successful backup job is not proof of recoverability</td><td>§9.2</td></tr>
+      <tr><td>10</td><td>M9 renamed to staging-only; a new M17 makes production go-live depend on M1–M8 <i>and</i> M10–M15; M16 (public page) stays independently deployable</td><td>§10.1, §10.2</td></tr>
+      <tr><td>11</td><td>Coupon redemption-state and expiry-basis ambiguities made explicit as open policy questions rather than silently assumed</td><td>§2.10, §2.11, §11.5</td></tr>
+      <tr><td>12</td><td>New concurrency/idempotency/session/import/payment-history/backup-recovery test scenarios; this consistency check re-run</td><td>§8, §11.6</td></tr>
+    </table></div>
+    <p>Unresolved college-level decisions remain exactly where §11.5 lists them — this revision added two more (coupon redemption-state, expiry basis) but invented answers to none of them, per the review's explicit instruction not to invent policy.</p>
+  </section>
+
+  </div>
+  </main>
+
+  <footer>BiteCampus — Phase 2 architecture, Revision 2.1. No code, dependencies, or scaffolding exist yet; this is the document to approve before any of that starts.</footer>
+</div>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<script>
+(function(){
+  try{
+    var btn = document.getElementById('navToggle');
+    var nav = document.getElementById('toc');
+    if (btn && nav){
+      btn.addEventListener('click', function(){ nav.classList.toggle('open'); });
+      nav.addEventListener('click', function(e){ if (e.target.tagName === 'A') nav.classList.remove('open'); });
+    }
+  } catch(e){}
+})();
+</script>
